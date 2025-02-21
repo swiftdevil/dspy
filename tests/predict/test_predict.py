@@ -44,8 +44,9 @@ def test_lm_after_dump_and_load_state():
 async def test_call_method():
     predict_instance = Predict("input -> output")
     lm = DummyLM([{"output": "test output"}])
-    dspy.settings.configure(lm=lm)
-    result = await predict_instance(input="test input")
+    with dspy.context() as settings:
+        settings.configure(lm=lm)
+        result = await predict_instance(settings, input="test input")
     assert result.output == "test output"
 
 
@@ -214,15 +215,17 @@ def test_signature_fields_after_dump_and_load_state(tmp_path):
 
 async def test_forward_method():
     program = Predict("question -> answer")
-    dspy.settings.configure(lm=DummyLM([{"answer": "No more responses"}]))
-    result = await program(question="What is 1+1?")
+    with dspy.context() as settings:
+        settings.configure(lm=DummyLM([{"answer": "No more responses"}]))
+        result = await program(settings, question="What is 1+1?")
     assert result.answer == "No more responses"
 
 
 async def test_forward_method2():
     program = Predict("question -> answer1, answer2")
-    dspy.settings.configure(lm=DummyLM([{"answer1": "my first answer", "answer2": "my second answer"}]))
-    result = await program(question="What is 1+1?")
+    with dspy.context() as settings:
+        settings.configure(lm=DummyLM([{"answer1": "my first answer", "answer2": "my second answer"}]))
+        result = await program(settings, question="What is 1+1?")
     assert result.answer1 == "my first answer"
     assert result.answer2 == "my second answer"
 
@@ -236,23 +239,25 @@ def test_config_management():
 
 async def test_multi_output():
     program = Predict("question -> answer", n=2)
-    dspy.settings.configure(lm=DummyLM([{"answer": "my first answer"}, {"answer": "my second answer"}]))
-    results = await program(question="What is 1+1?")
+    with dspy.context() as settings:
+        settings.configure(lm=DummyLM([{"answer": "my first answer"}, {"answer": "my second answer"}]))
+        results = await program(settings, question="What is 1+1?")
     assert results.completions.answer[0] == "my first answer"
     assert results.completions.answer[1] == "my second answer"
 
 
 async def test_multi_output2():
     program = Predict("question -> answer1, answer2", n=2)
-    dspy.settings.configure(
-        lm=DummyLM(
-            [
-                {"answer1": "my 0 answer", "answer2": "my 2 answer"},
-                {"answer1": "my 1 answer", "answer2": "my 3 answer"},
-            ],
+    with dspy.context() as settings:
+        settings.configure(
+            lm=DummyLM(
+                [
+                    {"answer1": "my 0 answer", "answer2": "my 2 answer"},
+                    {"answer1": "my 1 answer", "answer2": "my 3 answer"},
+                ],
+            )
         )
-    )
-    results = await program(question="What is 1+1?")
+        results = await program(settings, question="What is 1+1?")
     assert results.completions.answer1[0] == "my 0 answer"
     assert results.completions.answer1[1] == "my 1 answer"
     assert results.completions.answer2[0] == "my 2 answer"
@@ -281,14 +286,17 @@ async def test_datetime_inputs_and_outputs():
             }
         ]
     )
-    dspy.settings.configure(lm=lm)
-
-    output = await program(
-        events=[
-            TimedEvent(event_name="Event 1", event_time=datetime(2024, 11, 25, 10, 0, 0)),
-            TimedEvent(event_name="Event 2", event_time=datetime(2024, 11, 25, 15, 30, 0)),
-        ]
-    )
+    
+    with dspy.context() as settings:
+        settings.configure(lm=lm)
+    
+        output = await program(
+            settings,
+            events=[
+                TimedEvent(event_name="Event 1", event_time=datetime(2024, 11, 25, 10, 0, 0)),
+                TimedEvent(event_name="Event 2", event_time=datetime(2024, 11, 25, 15, 30, 0)),
+            ]
+        )
     assert output.summary == "All events are processed"
     assert output.next_event_time == datetime(2024, 11, 27, 14, 0, 0)
 
@@ -313,9 +321,10 @@ async def test_explicitly_valued_enum_inputs_and_outputs():
             }
         ]
     )
-    dspy.settings.configure(lm=lm)
-
-    output = await program(current_status=Status.PENDING)
+    
+    with dspy.context() as settings:
+        settings.configure(lm=lm)
+        output = await program(settings, current_status=Status.PENDING)
     assert output.next_status == Status.IN_PROGRESS
 
 
@@ -340,9 +349,10 @@ async def test_enum_inputs_and_outputs_with_shared_names_and_values():
             }
         ]
     )
-    dspy.settings.configure(lm=lm)
-
-    output = await program(current_status=TicketStatus.OPEN)
+    
+    with dspy.context() as settings:
+        settings.configure(lm=lm)
+        output = await program(settings, current_status=TicketStatus.OPEN)
     assert output.next_status == TicketStatus.CLOSED  # By value
 
 
@@ -363,9 +373,10 @@ async def test_auto_valued_enum_inputs_and_outputs():
             }
         ]
     )
-    dspy.settings.configure(lm=lm)
-
-    output = await program(current_status=Status.PENDING)
+    
+    with dspy.context() as settings:
+        settings.configure(lm=lm)
+        output = await program(settings, current_status=Status.PENDING)
     assert output.next_status == Status.IN_PROGRESS
 
 
@@ -390,8 +401,9 @@ async def test_output_only():
     predictor = Predict(OutputOnlySignature)
 
     lm = DummyLM([{"output": "short answer"}])
-    dspy.settings.configure(lm=lm)
-    result = await predictor()
+    with dspy.context() as settings:
+        settings.configure(lm=lm)
+        result = await predictor(settings)
     assert result.output == "short answer"
 
 

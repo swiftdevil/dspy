@@ -93,7 +93,7 @@ class DummyLM(LM):
                 return output["content"]
 
     @with_callbacks
-    async def __call__(self, prompt=None, messages=None, **kwargs):
+    async def __call__(self, settings, prompt=None, messages=None, **kwargs):
         def format_answer_fields(field_names_and_values: Dict[str, Any]):
             return format_fields(
                 fields_with_values={
@@ -135,7 +135,7 @@ class DummyLM(LM):
         return self.history[index]["messages"], self.history[index]["outputs"]
 
 
-def dummy_rm(passages=()) -> callable:
+def dummy_rm(settings, passages=()) -> callable:
     if not passages:
 
         def inner(query: str, *, k: int, **kwargs):
@@ -144,7 +144,7 @@ def dummy_rm(passages=()) -> callable:
         return inner
     max_length = max(map(len, passages)) + 100
     vectorizer = DummyVectorizer(max_length)
-    passage_vecs = vectorizer(passages)
+    passage_vecs = vectorizer(settings, passages)
 
     def inner(query: str, *, k: int, **kwargs):
         assert k <= len(passages)
@@ -175,7 +175,7 @@ class DummyVectorizer:
             h %= self.P
         return h % self.max_length
 
-    def __call__(self, texts: list[str]) -> np.ndarray:
+    def __call__(self, settings, texts: list[str]) -> np.ndarray:
         vecs = []
         for text in texts:
             grams = [text[i : i + self.n_gram] for i in range(len(text) - self.n_gram + 1)]

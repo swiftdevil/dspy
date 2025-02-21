@@ -30,8 +30,8 @@ class JSONAdapter(Adapter):
     def __init__(self):
         pass
 
-    async def __call__(self, lm, lm_kwargs, signature, demos, inputs):
-        inputs = await self.format(signature, demos, inputs)
+    async def __call__(self, settings, lm, lm_kwargs, signature, demos, inputs):
+        inputs = await self.format(settings, signature, demos, inputs)
         inputs = dict(prompt=inputs) if isinstance(inputs, str) else dict(messages=inputs)
 
         try:
@@ -40,24 +40,24 @@ class JSONAdapter(Adapter):
             if params and "response_format" in params:
                 try:
                     response_format = _get_structured_outputs_response_format(signature)
-                    outputs = await lm(**inputs, **lm_kwargs, response_format=response_format)
+                    outputs = await lm(settings, **inputs, **lm_kwargs, response_format=response_format)
                 except Exception:
                     logger.debug(
                         "Failed to obtain response using signature-based structured outputs"
                         " response format: Falling back to default 'json_object' response format."
                         " Exception: {e}"
                     )
-                    outputs = await lm(**inputs, **lm_kwargs, response_format={"type": "json_object"})
+                    outputs = await lm(settings, **inputs, **lm_kwargs, response_format={"type": "json_object"})
             else:
-                outputs = await lm(**inputs, **lm_kwargs)
+                outputs = await lm(settings, **inputs, **lm_kwargs)
 
         except litellm.UnsupportedParamsError:
-            outputs = await lm(**inputs, **lm_kwargs)
+            outputs = await lm(settings, **inputs, **lm_kwargs)
 
         values = []
 
         for output in outputs:
-            value = await self.parse(signature, output)
+            value = await self.parse(settings, signature, output)
             assert set(value.keys()) == set(
                 signature.output_fields.keys()
             ), f"Expected {signature.output_fields.keys()} but got {value.keys()}"
@@ -65,7 +65,7 @@ class JSONAdapter(Adapter):
 
         return values
 
-    async def format(self, signature, demos, inputs):
+    async def format(self, settings, signature, demos, inputs):
         messages = []
 
         # Extract demos where some of the output_fields are not filled in.
@@ -89,7 +89,7 @@ class JSONAdapter(Adapter):
 
         return messages
 
-    async def parse(self, signature, completion):
+    async def parse(self, settings, signature, completion):
         fields = json_repair.loads(completion)
         fields = {k: v for k, v in fields.items() if k in signature.output_fields}
 

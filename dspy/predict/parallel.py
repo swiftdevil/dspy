@@ -29,20 +29,20 @@ class Parallel:
         self.exceptions = []
 
 
-    async def forward(self, exec_pairs: List[Tuple[Any, Example]], num_threads: int = None) -> List[Any]:
+    async def forward(self, settings, exec_pairs: List[Tuple[Any, Example]], num_threads: int = None) -> List[Any]:
 
         async def process_pair(pair):
             result = None
             module, example = pair
 
             if isinstance(example, Example):
-                result = await module(example)
+                result = await module(settings, example)
             elif isinstance(example, dict):
-                result = await module(**example)
+                result = await module(settings, **example)
             elif isinstance(example, list) and module.__class__.__name__ == "Parallel":
-                result = await module(example)
+                result = await module(settings, example)
             elif isinstance(example, tuple):
-                result = await module(*example)
+                result = await module(settings, *example)
             else:
                 raise ValueError(f"Invalid example type: {type(example)}, only supported types are Example, dict, list and tuple")
             return result
@@ -56,5 +56,5 @@ class Parallel:
             return results
 
 
-    async def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.forward(*args, **kwargs)
+    async def __call__(self, settings, *args: Any, **kwargs: Any) -> Any:
+        return await self.forward(settings, *args, **kwargs)

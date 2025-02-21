@@ -145,15 +145,15 @@ class Evaluate:
             provide_traceback=self.provide_traceback,
         )
 
-        async def process_item(example):
-            prediction = await program(**example.inputs())
+        async def process_item(settings, example):
+            prediction = await program(settings, **example.inputs())
             score = metric(example, prediction)
 
             # Increment assert and suggest failures to program's attributes
             if hasattr(program, "_assert_failures"):
-                program._assert_failures += dspy.settings.get("assert_failures")
+                program._assert_failures += settings.get("assert_failures")
             if hasattr(program, "_suggest_failures"):
-                program._suggest_failures += dspy.settings.get("suggest_failures")
+                program._suggest_failures += settings.get("suggest_failures")
 
             return prediction, score
 

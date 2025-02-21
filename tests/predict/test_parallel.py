@@ -11,7 +11,6 @@ async def test_parallel_module():
         {"output": "test output 4"},
         {"output": "test output 5"},
     ])
-    dspy.settings.configure(lm=lm)
 
     class MyModule(dspy.Module):
         def __init__(self):
@@ -21,8 +20,8 @@ async def test_parallel_module():
 
             self.parallel = dspy.Parallel(num_threads=2)
 
-        async def forward(self, input):
-            return await self.parallel([
+        async def forward(self, settings, input):
+            return await self.parallel(settings, [
                 (self.predictor, input),
                 (self.predictor2, input),
                 (self.predictor, input),
@@ -30,7 +29,9 @@ async def test_parallel_module():
                 (self.predictor, input),
             ])
 
-    output = await MyModule()(dspy.Example(input="test input").with_inputs("input"))
+    with dspy.context as settings:
+        settings.configure(lm=lm)
+        output = await MyModule()(settings, dspy.Example(input="test input").with_inputs("input"))
 
     assert output[0].output == "test output 1"
     assert output[1].output == "test output 2"
@@ -63,7 +64,7 @@ async def test_batch_module():
 
             self.parallel = dspy.Parallel(num_threads=2)
 
-        async def forward(self, input):
+        async def forward(self, settings, input):
             dspy.settings.configure(lm=lm)
             res1 = await self.predictor.batch([input] * 5)
 
@@ -111,8 +112,8 @@ async def test_nested_parallel_module():
 
             self.parallel = dspy.Parallel(num_threads=2)
 
-        async def forward(self, input):
-            return await self.parallel([
+        async def forward(self, settings, input):
+            return await self.parallel(settings, [
                 (self.predictor, input),
                 (self.predictor2, input),
                 (self.parallel, [
@@ -121,7 +122,7 @@ async def test_nested_parallel_module():
                 ]),
             ])
         
-    output = await MyModule()(dspy.Example(input="test input").with_inputs("input"))
+    output = await MyModule()(settings, dspy.Example(input="test input").with_inputs("input"))
 
     assert output[0].output == "test output 1"
     assert output[1].output == "test output 2"
@@ -144,7 +145,7 @@ async def test_nested_batch_method():
             super().__init__()
             self.predictor = dspy.Predict("input -> output")
 
-        async def forward(self, input):
+        async def forward(self, settings, input):
             res = await self.predictor.batch([dspy.Example(input=input).with_inputs("input")]*2)
 
             return res

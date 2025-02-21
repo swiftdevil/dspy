@@ -13,7 +13,7 @@ def clear_settings():
     import dspy
     from dspy.dsp.utils.settings import DEFAULT_CONFIG
 
-    dspy.settings.configure(**copy.deepcopy(DEFAULT_CONFIG), inherit_config=False)
+    dspy.settings.configure(**copy.deepcopy(DEFAULT_CONFIG))
 
 
 @pytest.fixture

@@ -66,7 +66,7 @@ class MyCallback(BaseCallback):
 async def test_callback_injection(args, kwargs):
     class Target(dspy.Module):
         @with_callbacks
-        async def forward(self, x: int, y: str, z: float) -> int:
+        async def forward(self, settings, x: int, y: str, z: float) -> int:
             time.sleep(0.1)
             return x + int(y) + int(z)
 
@@ -88,7 +88,7 @@ async def test_callback_injection(args, kwargs):
 async def test_callback_injection_local():
     class Target(dspy.Module):
         @with_callbacks
-        async def forward(self, x: int, y: str, z: float) -> int:
+        async def forward(self, settings, x: int, y: str, z: float) -> int:
             time.sleep(0.1)
             return x + int(y) + int(z)
 
@@ -117,7 +117,7 @@ async def test_callback_injection_local():
 async def test_callback_error_handling():
     class Target(dspy.Module):
         @with_callbacks
-        async def forward(self, x: int, y: str, z: float) -> int:
+        async def forward(self, settings, x: int, y: str, z: float) -> int:
             time.sleep(0.1)
             raise ValueError("Error")
 
@@ -138,7 +138,7 @@ async def test_callback_error_handling():
 async def test_multiple_callbacks():
     class Target(dspy.Module):
         @with_callbacks
-        async def forward(self, x: int, y: str, z: float) -> int:
+        async def forward(self, settings, x: int, y: str, z: float) -> int:
             time.sleep(0.1)
             return x + int(y) + int(z)
 
@@ -203,7 +203,7 @@ async def test_tool_calls():
         def __init__(self):
             self.tools = [dspy.Tool(tool_1), dspy.Tool(tool_2)]
 
-        async def forward(self, query: str) -> str:
+        async def forward(self, settings, query: str) -> str:
             query = await self.tools[0](query)
             return await self.tools[1](query)
 
@@ -239,12 +239,12 @@ async def test_active_id():
             self.child_1 = Child()
             self.child_2 = Child()
 
-        async def forward(self):
+        async def forward(self, settings):
             await self.child_1()
             await self.child_2()
 
     class Child(dspy.Module):
-        async def forward(self):
+        async def forward(self, settings):
             pass
 
     callback = CustomCallback()

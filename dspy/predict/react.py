@@ -69,12 +69,12 @@ class ReAct(Module):
         self.react = dspy.Predict(react_signature)
         self.extract = dspy.ChainOfThought(fallback_signature)
 
-    def _format_trajectory(self, trajectory: dict[str, Any]):
-        adapter = dspy.settings.adapter or dspy.ChatAdapter()
+    def _format_trajectory(self, settings, trajectory: dict[str, Any]):
+        adapter = settings.adapter or dspy.ChatAdapter()
         trajectory_signature = dspy.Signature(f"{', '.join(trajectory.keys())} -> x")
         return adapter.format_fields(trajectory_signature, trajectory, role="user")
 
-    async def forward(self, **input_args):
+    async def forward(self, settings, **input_args):
         trajectory = {}
         for idx in range(self.max_iters):
             pred = await self._call_with_potential_trajectory_truncation(self.react, trajectory, **input_args)

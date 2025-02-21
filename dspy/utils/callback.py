@@ -226,8 +226,9 @@ class BaseCallback:
 def with_callbacks(fn):
     @functools.wraps(fn)
     async def wrapper(instance, *args, **kwargs):
+        settings = args[0]
         # Combine global and local (per-instance) callbacks.
-        callbacks = dspy.settings.get("callbacks", []) + getattr(instance, "callbacks", [])
+        callbacks = settings.get("callbacks", []) + getattr(instance, "callbacks", [])
 
         # If no callbacks are provided, just call the function
         if not callbacks:

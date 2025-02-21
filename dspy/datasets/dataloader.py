@@ -95,9 +95,9 @@ class DataLoader(Dataset):
 
         return [dspy.Example({field: row[field] for field in fields}).with_inputs(input_keys) for row in dataset]
 
-    def from_rm(self, num_samples: int, fields: List[str], input_keys: List[str]) -> List[dspy.Example]:
+    def from_rm(self, settings, num_samples: int, fields: List[str], input_keys: List[str]) -> List[dspy.Example]:
         try:
-            rm = dspy.settings.rm
+            rm = settings.rm
             try:
                 return [
                     dspy.Example({field: row[field] for field in fields}).with_inputs(*input_keys)

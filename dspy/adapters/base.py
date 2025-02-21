@@ -16,11 +16,11 @@ class Adapter(ABC):
         cls.format = with_callbacks(cls.format)
         cls.parse = with_callbacks(cls.parse)
 
-    async def __call__(self, lm, lm_kwargs, signature, demos, inputs):
-        inputs_ = await self.format(signature, demos, inputs)
+    async def __call__(self, settings, lm, lm_kwargs, signature, demos, inputs):
+        inputs_ = await self.format(settings, signature, demos, inputs)
         inputs_ = dict(prompt=inputs_) if isinstance(inputs_, str) else dict(messages=inputs_)
 
-        outputs = await lm(**inputs_, **lm_kwargs)
+        outputs = await lm(settings, **inputs_, **lm_kwargs)
         values = []
 
         try:
@@ -30,7 +30,7 @@ class Adapter(ABC):
                 if isinstance(output, dict):
                     output, output_logprobs = output["text"], output["logprobs"]
 
-                value = await self.parse(signature, output)
+                value = await self.parse(settings, signature, output)
 
                 assert set(value.keys()) == set(signature.output_fields.keys()), \
                     f"Expected {signature.output_fields.keys()} but got {value.keys()}"
@@ -52,12 +52,12 @@ class Adapter(ABC):
             raise e
 
     @abstractmethod
-    async def format(self, signature, demos, inputs):
+    async def format(self, settings, signature, demos, inputs):
        raise NotImplementedError
 
     @abstractmethod
-    async def parse(self, signature, completion):
+    async def parse(self, settings, signature, completion):
        raise NotImplementedError
 
-    async def format_finetune_data(self, signature, demos, inputs, outputs):
+    async def format_finetune_data(self, settings, signature, demos, inputs, outputs):
         raise NotImplementedError

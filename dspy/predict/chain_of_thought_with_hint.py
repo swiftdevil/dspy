@@ -9,7 +9,7 @@ class ChainOfThoughtWithHint(Module):
         self.signature = dspy.ensure_signature(signature)
         self.module = dspy.ChainOfThought(signature, rationale_type=rationale_type, **config)
     
-    def forward(self, **kwargs):
+    def forward(self, settings, **kwargs):
         if 'hint' in kwargs and kwargs['hint']:
             hint = f"\n\t\t(secret hint: {kwargs.pop('hint')})"
             original_kwargs = kwargs.copy()
@@ -20,8 +20,8 @@ class ChainOfThoughtWithHint(Module):
 
             # Run CoT then update the trace with original kwargs, i.e. without the hint.
             pred = self.module(**kwargs)
-            this_trace = dspy.settings.trace[-1]
-            dspy.settings.trace[-1] = (this_trace[0], original_kwargs, this_trace[2])
+            this_trace = settings.trace[-1]
+            settings.trace[-1] = (this_trace[0], original_kwargs, this_trace[2])
             return pred
         
         return self.module(**kwargs)

@@ -159,8 +159,9 @@ class GenerateModuleInstruction(dspy.Module):
             use_tip=use_tip,
         )
 
-    def forward(
+    async def forward(
         self,
+        settings,
         demo_candidates,
         pred_i,
         demo_set_i,
@@ -371,6 +372,7 @@ class GroundedProposer(Proposer):
 
     def propose_instruction_for_predictor(
         self,
+        settings,
         program,
         predictor,
         pred_i,
@@ -405,9 +407,10 @@ class GroundedProposer(Proposer):
         epsilon = self.rng.uniform(0.01, 0.05)
         modified_temp = T + epsilon
 
-        with dspy.settings.context(lm=self.prompt_model):
+        with settings.context(lm=self.prompt_model) as prompt_context:
             self.prompt_model.kwargs["temperature"] = modified_temp
             proposed_instruction = instruction_generator.forward(
+                settings=prompt_context,
                 demo_candidates=demo_candidates,
                 pred_i=pred_i,
                 demo_set_i=demo_set_i,

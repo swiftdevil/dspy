@@ -34,7 +34,7 @@ class SimplifiedBaleen(dspy.Module):
         self.generate_answer = dspy.ChainOfThought(GenerateAnswer)
         self.max_hops = max_hops
 
-    async def forward(self, question):
+    async def forward(self, settings, question):
         context = []
 
         for hop in range(self.max_hops):

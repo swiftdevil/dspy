@@ -13,6 +13,7 @@ from pydantic.fields import FieldInfo
 from dspy.adapters.base import Adapter
 from dspy.adapters.image_utils import try_expand_image_tags
 from dspy.adapters.utils import format_field_value, get_annotation_name, parse_value
+from dspy.dsp.utils import Settings
 from dspy.signatures.field import OutputField
 from dspy.signatures.signature import Signature, SignatureMeta
 from dspy.signatures.utils import get_dspy_field_type
@@ -30,7 +31,7 @@ BuiltInCompletedOutputFieldInfo = FieldInfoWithName(name="completed", info=Outpu
 
 
 class ChatAdapter(Adapter):
-    async def format(self, signature: Signature, demos: list[dict[str, Any]], inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    async def format(self, settings: Settings, signature: Signature, demos: list[dict[str, Any]], inputs: dict[str, Any]) -> list[dict[str, Any]]:
         messages: list[dict[str, Any]] = []
 
         # Extract demos where some of the output_fields are not filled in.
@@ -57,7 +58,7 @@ class ChatAdapter(Adapter):
         messages = try_expand_image_tags(messages)
         return messages
 
-    async def parse(self, signature, completion):
+    async def parse(self, settings, signature, completion):
         sections = [(None, [])]
 
         for line in completion.splitlines():
@@ -85,9 +86,9 @@ class ChatAdapter(Adapter):
         return fields
 
     # TODO(PR): Looks ok?
-    async def format_finetune_data(self, signature, demos, inputs, outputs):
+    async def format_finetune_data(self, settings, signature, demos, inputs, outputs):
         # Get system + user messages
-        messages = await self.format(signature, demos, inputs)
+        messages = await self.format(settings, signature, demos, inputs)
 
         # Add the assistant message
         role = "assistant"

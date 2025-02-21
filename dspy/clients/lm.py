@@ -26,6 +26,7 @@ from dspy.clients.utils_finetune import TrainDataFormat
 from dspy.utils.callback import BaseCallback, with_callbacks
 
 from .base_lm import BaseLM
+from ..dsp.utils import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +102,7 @@ class LM(BaseLM):
             self.kwargs = dict(temperature=temperature, max_tokens=max_tokens, **kwargs)
 
     @with_callbacks
-    async def __call__(self, prompt=None, messages=None, **kwargs):
+    async def __call__(self, settings, prompt=None, messages=None, **kwargs):
         # Build the request.
         cache = kwargs.pop("cache", self.cache)
         # disable cache will also disable in memory cache
@@ -114,6 +115,7 @@ class LM(BaseLM):
             completion = cached_litellm_completion if self.model_type == "chat" else cached_litellm_text_completion
 
             response = await completion(
+                settings=settings,
                 request=dict(model=self.model, messages=messages, **kwargs),
                 num_retries=self.num_retries,
             )
@@ -121,6 +123,7 @@ class LM(BaseLM):
             completion = litellm_completion if self.model_type == "chat" else litellm_text_completion
 
             response = await completion(
+                settings=settings,
                 request=dict(model=self.model, messages=messages, **kwargs),
                 num_retries=self.num_retries,
                 # only leverage LiteLLM cache in this case
@@ -322,15 +325,16 @@ def request_cache(maxsize: Optional[int] = None):
 
 
 @request_cache(maxsize=None)
-async def cached_litellm_completion(request: Dict[str, Any], num_retries: int):
+async def cached_litellm_completion(settings: Settings, request: Dict[str, Any], num_retries: int):
     return await litellm_completion(
+        settings,
         request,
         cache={"no-cache": False, "no-store": False},
         num_retries=num_retries,
     )
 
 
-async def litellm_completion(request: Dict[str, Any], num_retries: int, cache={"no-cache": True, "no-store": True}):
+async def litellm_completion(settings: Settings, request: Dict[str, Any], num_retries: int, cache={"no-cache": True, "no-store": True}):
     retry_kwargs = dict(
         retry_policy=_get_litellm_retry_policy(num_retries),
         # In LiteLLM version 1.55.3 (the first version that supports retry_policy as an argument
@@ -339,7 +343,7 @@ async def litellm_completion(request: Dict[str, Any], num_retries: int, cache={"
         max_retries=0,
     )
 
-    stream = dspy.settings.send_stream
+    stream = settings.send_stream
     if stream is None:
         return await litellm.acompletion(
             cache=cache,
@@ -367,15 +371,16 @@ async def litellm_completion(request: Dict[str, Any], num_retries: int, cache={"
 
 
 @request_cache(maxsize=None)
-def cached_litellm_text_completion(request: Dict[str, Any], num_retries: int):
+def cached_litellm_text_completion(settings: Settings, request: Dict[str, Any], num_retries: int):
     return litellm_text_completion(
+        settings,
         request,
         num_retries=num_retries,
         cache={"no-cache": False, "no-store": False},
     )
 
 
-def litellm_text_completion(request: Dict[str, Any], num_retries: int, cache={"no-cache": True, "no-store": True}):
+def litellm_text_completion(settings: Settings, request: Dict[str, Any], num_retries: int, cache={"no-cache": True, "no-store": True}):
     # Extract the provider and model from the model string.
     # TODO: Not all the models are in the format of "provider/model"
     model = request.pop("model").split("/", 1)

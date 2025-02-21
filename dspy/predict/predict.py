@@ -63,10 +63,10 @@ class Predict(Module, Parameter):
         return self
 
     @with_callbacks
-    async def __call__(self, **kwargs):
-        return await self.forward(**kwargs)
+    async def __call__(self, settings, **kwargs):
+        return await self.forward(settings, **kwargs)
 
-    async def forward(self, **kwargs):
+    async def forward(self, settings, **kwargs):
         import dspy
 
         # Extract the three privileged keyword arguments.
@@ -76,7 +76,7 @@ class Predict(Module, Parameter):
         config = dict(**self.config, **kwargs.pop("config", {}))
 
         # Get the right LM to use.
-        lm = kwargs.pop("lm", self.lm) or dspy.settings.lm
+        lm = kwargs.pop("lm", self.lm) or settings.lm
         assert isinstance(lm, dspy.LM), "No LM is loaded."
 
         # If temperature is 0.0 but its n > 1, set temperature to 0.7.
@@ -93,13 +93,13 @@ class Predict(Module, Parameter):
             print(f"WARNING: Not all input fields were provided to module. Present: {present}. Missing: {missing}.")
 
         import dspy
-        adapter = dspy.settings.adapter or dspy.ChatAdapter()
-        completions = await adapter(lm, lm_kwargs=config, signature=signature, demos=demos, inputs=kwargs)
+        adapter = settings.adapter or dspy.ChatAdapter()
+        completions = await adapter(settings, lm, lm_kwargs=config, signature=signature, demos=demos, inputs=kwargs)
 
         pred = Prediction.from_completions(completions, signature=signature)
 
-        if kwargs.pop("_trace", True) and dspy.settings.trace is not None:
-            trace = dspy.settings.trace
+        if kwargs.pop("_trace", True) and settings.trace is not None:
+            trace = settings.trace
             trace.append((self, {**kwargs}, pred))
 
         return pred

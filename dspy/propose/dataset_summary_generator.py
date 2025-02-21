@@ -44,12 +44,12 @@ def order_input_keys_in_string(unordered_repr):
 
     return ordered_repr
 
-def create_dataset_summary(trainset, view_data_batch_size, prompt_model, log_file=None, verbose=False):
+async def create_dataset_summary(settings, trainset, view_data_batch_size, prompt_model, log_file=None, verbose=False):
     if verbose: print("\nBootstrapping dataset summary (this will be used to generate instructions)...")
     upper_lim = min(len(trainset), view_data_batch_size)
-    prompt_model = prompt_model if prompt_model else dspy.settings.lm
-    with dspy.settings.context(lm=prompt_model):
-        observation = dspy.Predict(DatasetDescriptor, n=1, temperature=1.0)(examples=order_input_keys_in_string(trainset[0:upper_lim].__repr__()))
+    prompt_model = prompt_model if prompt_model else settings.lm
+    with settings.context(lm=prompt_model) as prompt_settings:
+        observation = await dspy.Predict(DatasetDescriptor, n=1, temperature=1.0)(prompt_settings, examples=order_input_keys_in_string(trainset[0:upper_lim].__repr__()))
     observations = observation["observations"]
 
     if log_file:
@@ -65,8 +65,8 @@ def create_dataset_summary(trainset, view_data_batch_size, prompt_model, log_fil
                 break
             if verbose: print(f"b: {b}")
             upper_lim = min(len(trainset), b+view_data_batch_size)
-            with dspy.settings.context(lm=prompt_model):
-                output = dspy.Predict(DatasetDescriptorWithPriorObservations, n=1, temperature=1.0)(prior_observations=observations, examples=order_input_keys_in_string(trainset[b:upper_lim].__repr__()))
+            with settings.context(lm=prompt_model) as prompt_settings:
+                output = await dspy.Predict(DatasetDescriptorWithPriorObservations, n=1, temperature=1.0)(prompt_settings, prior_observations=observations, examples=order_input_keys_in_string(trainset[b:upper_lim].__repr__()))
             if len(output["observations"]) >= 8 and output["observations"][:8].upper() == "COMPLETE":
                 skips += 1
                 if skips >= 5:
@@ -80,10 +80,10 @@ def create_dataset_summary(trainset, view_data_batch_size, prompt_model, log_fil
         if verbose: print(f"e {e}. using observations from past round for a summary.")
 
     if prompt_model:
-        with dspy.settings.context(lm=prompt_model):
-            summary = dspy.Predict(ObservationSummarizer, n=1, temperature=1.0)(observations=observations)
+        with settings.context(lm=prompt_model) as prompt_settings:
+            summary = await dspy.Predict(ObservationSummarizer, n=1, temperature=1.0)(prompt_settings, observations=observations)
     else:
-        summary = dspy.Predict(ObservationSummarizer, n=1, temperature=1.0)(observations=observations)
+        summary = await dspy.Predict(ObservationSummarizer, n=1, temperature=1.0)(settings, observations=observations)
     if verbose: print(f"summary: {summary}")
     if log_file:
         log_file.write(f"summary: {summary}\n")

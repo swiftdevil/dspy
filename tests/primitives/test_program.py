@@ -9,9 +9,9 @@ class HopModule(dspy.Module):
         self.predict1 = dspy.Predict("question -> query")
         self.predict2 = dspy.Predict("query -> answer")
 
-    async def forward(self, question):
-        query = await self.predict1(question=question)
-        return await self.predict2(query=query.query)
+    async def forward(self, settings, question):
+        query = await self.predict1(settings, question=question)
+        return await self.predict2(settings, query=query.query)
 
 
 def test_module_initialization():
@@ -36,15 +36,16 @@ def test_predictors():
 
 async def test_forward():
     program = HopModule()
-    dspy.settings.configure(
-        lm=DummyLM(
-            {
-                "What is 1+1?": {"query": "let me check"},
-                "let me check": {"answer": "2"},
-            }
+    with dspy.context() as settings:
+        settings.configure(
+            lm=DummyLM(
+                {
+                    "What is 1+1?": {"query": "let me check"},
+                    "let me check": {"answer": "2"},
+                }
+            )
         )
-    )
-    result = await program(question="What is 1+1?")
+        result = await program(settings, question="What is 1+1?")
     assert result.answer == "2"
 
 
