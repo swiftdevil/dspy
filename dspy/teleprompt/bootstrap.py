@@ -76,7 +76,7 @@ class BootstrapFewShot(Teleprompter):
         self.error_count = 0
         self.error_lock = threading.Lock()
 
-    def compile(self, student, *, teacher=None, trainset):
+    async def compile(self, student, *, teacher=None, trainset):
         self.trainset = trainset
 
         self._prepare_student_and_teacher(student, teacher)
@@ -174,7 +174,7 @@ class BootstrapFewShot(Teleprompter):
         # evaluate = Evaluate(program=self.teacher, metric=self.metric, num_threads=12)
         # score = evaluate(self.metric, display_table=False, display_progress=True)
 
-    def _bootstrap_one_example(self, example, round_idx=0):
+    async def _bootstrap_one_example(self, example, round_idx=0):
         name2traces = {} #self.name2traces
         teacher = self.teacher  # .deepcopy()
         predictor_cache = {}
@@ -190,7 +190,7 @@ class BootstrapFewShot(Teleprompter):
                         predictor_cache[name] = predictor.demos
                         predictor.demos = [x for x in predictor.demos if x != example]
 
-                    prediction = teacher(**example.inputs())
+                    prediction = await teacher(**example.inputs())
                     trace = dspy.settings.trace
 
                     for name, predictor in teacher.named_predictors():
