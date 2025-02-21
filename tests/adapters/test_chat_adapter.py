@@ -4,6 +4,7 @@ from unittest import mock
 import pytest
 
 import dspy
+from tests.special_mocks import get_async_magic_mock
 
 
 @pytest.mark.parametrize(
@@ -51,7 +52,7 @@ import dspy
         ),
     ],
 )
-def test_chat_adapter_quotes_literals_as_expected(
+async def test_chat_adapter_quotes_literals_as_expected(
     input_literal, output_literal, input_value, expected_input_str, expected_output_str
 ):
     """
@@ -68,8 +69,8 @@ def test_chat_adapter_quotes_literals_as_expected(
 
     dspy.configure(lm=dspy.LM(model="openai/gpt4o"), adapter=dspy.ChatAdapter())
 
-    with mock.patch("litellm.completion") as mock_completion:
-        program(input_text=input_value)
+    with mock.patch("litellm.acompletion", new_callable=get_async_magic_mock) as mock_completion:
+        await program(input_text=input_value)
 
     mock_completion.assert_called_once()
     _, call_kwargs = mock_completion.call_args

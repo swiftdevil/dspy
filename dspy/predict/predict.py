@@ -63,10 +63,10 @@ class Predict(Module, Parameter):
         return self
 
     @with_callbacks
-    def __call__(self, **kwargs):
-        return self.forward(**kwargs)
+    async def __call__(self, **kwargs):
+        return await self.forward(**kwargs)
 
-    def forward(self, **kwargs):
+    async def forward(self, **kwargs):
         import dspy
 
         # Extract the three privileged keyword arguments.
@@ -94,7 +94,7 @@ class Predict(Module, Parameter):
 
         import dspy
         adapter = dspy.settings.adapter or dspy.ChatAdapter()
-        completions = adapter(lm, lm_kwargs=config, signature=signature, demos=demos, inputs=kwargs)
+        completions = await adapter(lm, lm_kwargs=config, signature=signature, demos=demos, inputs=kwargs)
 
         pred = Prediction.from_completions(completions, signature=signature)
 

@@ -31,20 +31,20 @@ class ParallelExecutor:
         self.error_lock = threading.Lock()
         self.cancel_jobs = threading.Event()
 
-    def execute(self, function, data):
+    async def execute(self, function, data):
         wrapped_function = self._wrap_function(function)
         if self.num_threads == 1:
-            return self._execute_isolated_single_thread(wrapped_function, data)
+            return await self._execute_isolated_single_thread(wrapped_function, data)
         else:
-            return self._execute_multi_thread(wrapped_function, data)
+            return await self._execute_multi_thread(wrapped_function, data)
 
     def _wrap_function(self, function):
         # Wrap the function with error handling
-        def wrapped(item):
+        async def wrapped(item):
             if self.cancel_jobs.is_set():
                 return None
             try:
-                return function(item)
+                return await function(item)
             except Exception as e:
                 with self.error_lock:
                     self.error_count += 1
@@ -63,7 +63,7 @@ class ParallelExecutor:
                 return None
         return wrapped
 
-    def _execute_isolated_single_thread(self, function, data):
+    async def _execute_isolated_single_thread(self, function, data):
         results = []
         pbar = tqdm.tqdm(
             total=len(data),
@@ -85,7 +85,7 @@ class ParallelExecutor:
                 thread_local_overrides.overrides = original_overrides.copy()
 
                 try:
-                    result = function(item)
+                    result = await function(item)
                     results.append(result)
                 finally:
                     thread_local_overrides.overrides = original_overrides
@@ -117,7 +117,7 @@ class ParallelExecutor:
 
         pbar.update()
 
-    def _execute_multi_thread(self, function, data):
+    async def _execute_multi_thread(self, function, data):
         results = [None] * len(data)  # Pre-allocate results list to maintain order
         job_cancelled = "cancelled"
 

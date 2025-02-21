@@ -36,8 +36,11 @@ class ReAct(Module):
             ]
         )
 
+        async def finish_func(**kwargs):
+            return "Completed."
+
         tools["finish"] = Tool(
-            func=lambda **kwargs: "Completed.",
+            func=finish_func,
             name="finish",
             desc=f"Signals that the final outputs, i.e. {outputs}, are now available and marks the task as complete.",
             args={},
@@ -71,10 +74,10 @@ class ReAct(Module):
         trajectory_signature = dspy.Signature(f"{', '.join(trajectory.keys())} -> x")
         return adapter.format_fields(trajectory_signature, trajectory, role="user")
 
-    def forward(self, **input_args):
+    async def forward(self, **input_args):
         trajectory = {}
         for idx in range(self.max_iters):
-            pred = self._call_with_potential_trajectory_truncation(self.react, trajectory, **input_args)
+            pred = await self._call_with_potential_trajectory_truncation(self.react, trajectory, **input_args)
 
             trajectory[f"thought_{idx}"] = pred.next_thought
             trajectory[f"tool_name_{idx}"] = pred.next_tool_name
@@ -92,14 +95,14 @@ class ReAct(Module):
                             parsed_tool_args[k] = arg_type.model_validate(v)
                             continue
                     parsed_tool_args[k] = v
-                trajectory[f"observation_{idx}"] = self.tools[pred.next_tool_name](**parsed_tool_args)
+                trajectory[f"observation_{idx}"] = await self.tools[pred.next_tool_name](**parsed_tool_args)
             except Exception as e:
                 trajectory[f"observation_{idx}"] = f"Failed to execute: {e}"
 
             if pred.next_tool_name == "finish":
                 break
 
-        extract = self._call_with_potential_trajectory_truncation(self.extract, trajectory, **input_args)
+        extract = await self._call_with_potential_trajectory_truncation(self.extract, trajectory, **input_args)
         return dspy.Prediction(trajectory=trajectory, **extract)
 
     def _call_with_potential_trajectory_truncation(self, module, trajectory, **input_args):

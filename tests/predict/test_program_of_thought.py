@@ -8,7 +8,7 @@ class BasicQA(Signature):
     answer = dspy.OutputField(desc="often between 1 and 5 words")
 
 
-def test_pot_code_generation():
+async def test_pot_code_generation():
     lm = DummyLM(
         [
             {"reasoning": "Reason_A", "generated_code": "```python\nresult = 1+1\n```"},
@@ -17,11 +17,11 @@ def test_pot_code_generation():
     )
     dspy.settings.configure(lm=lm)
     pot = ProgramOfThought(BasicQA)
-    res = pot(question="What is 1+1?")
+    res = await pot(question="What is 1+1?")
     assert res.answer == "2"
 
 
-def test_pot_code_generation_with_error():
+async def test_pot_code_generation_with_error():
     lm = DummyLM(
         [
             {"reasoning": "Reason_A", "generated_code": "```python\nresult = 1+0/0\n```"},
@@ -32,5 +32,5 @@ def test_pot_code_generation_with_error():
     dspy.settings.configure(lm=lm)
 
     pot = ProgramOfThought(BasicQA)
-    res = pot(question="What is 1+1?")
+    res = await pot(question="What is 1+1?")
     assert res.answer == "2"

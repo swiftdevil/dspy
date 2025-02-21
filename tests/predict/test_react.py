@@ -128,7 +128,7 @@ import litellm
 
 
 def test_tool_from_function():
-    def foo(a: int, b: int) -> int:
+    async def foo(a: int, b: int) -> int:
         """Add two numbers."""
         return a + b
 
@@ -143,7 +143,7 @@ def test_tool_from_class():
         def __init__(self, user_id: str):
             self.user_id = user_id
 
-        def foo(self, a: int, b: int) -> int:
+        async def foo(self, a: int, b: int) -> int:
             """Add two numbers."""
             return a + b
 
@@ -153,13 +153,13 @@ def test_tool_from_class():
     assert tool.args == {"a": {"type": "integer"}, "b": {"type": "integer"}}
 
 
-def test_tool_calling_with_pydantic_args():
+async def test_tool_calling_with_pydantic_args():
     class CalendarEvent(BaseModel):
         name: str
         date: str
         participants: dict[str, str]
 
-    def write_invitation_letter(participant_name: str, event_info: CalendarEvent):
+    async def write_invitation_letter(participant_name: str, event_info: CalendarEvent):
         if participant_name not in event_info.participants:
             return None
         return f"It's my honor to invite {participant_name} to event {event_info.name} on {event_info.date}"
@@ -201,7 +201,7 @@ def test_tool_calling_with_pydantic_args():
     )
     dspy.settings.configure(lm=lm)
 
-    outputs = react(
+    outputs = await react(
         participant_name="Alice",
         event_info=CalendarEvent(
             name="Science Fair",
@@ -231,8 +231,8 @@ def test_tool_calling_with_pydantic_args():
     assert outputs.trajectory == expected_trajectory
 
 
-def test_tool_calling_without_typehint():
-    def foo(a, b):
+async def test_tool_calling_without_typehint():
+    async def foo(a, b):
         """Add two numbers."""
         return a + b
 
@@ -245,7 +245,7 @@ def test_tool_calling_without_typehint():
         ]
     )
     dspy.settings.configure(lm=lm)
-    outputs = react(a=1, b=2)
+    outputs = await react(a=1, b=2)
 
     expected_trajectory = {
         "thought_0": "I need to add two numbers.",

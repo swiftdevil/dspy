@@ -93,7 +93,7 @@ class DummyLM(LM):
                 return output["content"]
 
     @with_callbacks
-    def __call__(self, prompt=None, messages=None, **kwargs):
+    async def __call__(self, prompt=None, messages=None, **kwargs):
         def format_answer_fields(field_names_and_values: Dict[str, Any]):
             return format_fields(
                 fields_with_values={

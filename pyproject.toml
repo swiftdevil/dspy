@@ -251,3 +251,7 @@ line-ending = "auto"
 [tool.ruff.lint.per-file-ignores]
 "**/{tests,testing,docs}/*" = ["ALL"]
 "**__init__.py" = ["ALL"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

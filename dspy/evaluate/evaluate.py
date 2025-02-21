@@ -6,6 +6,7 @@ import pandas as pd
 import tqdm
 
 import dspy
+from dspy import Parallel
 from dspy.utils.parallelizer import ParallelExecutor
 
 try:
@@ -83,7 +84,7 @@ class Evaluate:
         self.provide_traceback = provide_traceback
         self.failure_score = failure_score
 
-    def __call__(
+    async def __call__(
         self,
         program: "dspy.Module",
         metric: Optional[Callable] = None,
@@ -137,16 +138,15 @@ class Evaluate:
 
         tqdm.tqdm._instances.clear()
 
-        executor = ParallelExecutor(
+        executor = Parallel(
             num_threads=num_threads,
             disable_progress_bar=not display_progress,
             max_errors=self.max_errors,
             provide_traceback=self.provide_traceback,
-            compare_results=True,
         )
 
-        def process_item(example):
-            prediction = program(**example.inputs())
+        async def process_item(example):
+            prediction = await program(**example.inputs())
             score = metric(example, prediction)
 
             # Increment assert and suggest failures to program's attributes
@@ -157,7 +157,7 @@ class Evaluate:
 
             return prediction, score
 
-        results = executor.execute(process_item, devset)
+        results = await executor([(process_item, example) for example in devset])
         assert len(devset) == len(results)
 
         results = [((dspy.Prediction(), self.failure_score) if r is None else r) for r in results]

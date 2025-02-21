@@ -120,7 +120,7 @@ class COPRO(Teleprompter):
         assert hasattr(predictor, "signature")
         predictor.signature = updated_signature
 
-    def compile(self, student, *, trainset, eval_kwargs):
+    async def compile(self, student, *, trainset, eval_kwargs):
         """
         optimizes `signature` of `student` program - note that it may be zero-shot or already pre-optimized (demos already chosen - `demos != []`)
 
@@ -157,13 +157,13 @@ class COPRO(Teleprompter):
             basic_prefix = self._get_signature(predictor).fields[last_key].json_schema_extra["prefix"]
             if self.prompt_model:
                 with dspy.settings.context(lm=self.prompt_model):
-                    instruct = dspy.Predict(
+                    instruct = await dspy.Predict(
                         BasicGenerateInstruction,
                         n=self.breadth - 1,
                         temperature=self.init_temperature,
                     )(basic_instruction=basic_instruction)
             else:
-                instruct = dspy.Predict(
+                instruct = await dspy.Predict(
                     BasicGenerateInstruction,
                     n=self.breadth - 1,
                     temperature=self.init_temperature,
@@ -225,7 +225,7 @@ class COPRO(Teleprompter):
                         f"At Depth {d+1}/{self.depth}, Evaluating Prompt Candidate #{c_i+1}/{len(candidates_)} for "
                         f"Predictor {p_i+1} of {len(module.predictors())}.",
                     )
-                    score = evaluate(module_clone, devset=trainset, **eval_kwargs)
+                    score = await evaluate(module_clone, devset=trainset, **eval_kwargs)
                     if self.prompt_model:
                         logger.debug(f"prompt_model.inspect_history(n=1) {self.prompt_model.inspect_history(n=1)}")
                     total_calls += 1

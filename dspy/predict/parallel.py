@@ -1,9 +1,9 @@
+import asyncio
 import threading
 
 from typing import Tuple, List, Any
 
 from ..primitives.example import Example
-from ..utils.parallelizer import ParallelExecutor
 
 
 class Parallel:
@@ -29,34 +29,26 @@ class Parallel:
         self.exceptions = []
 
 
-    def forward(self, exec_pairs: List[Tuple[Any, Example]], num_threads: int = None) -> List[Any]:
-        num_threads = num_threads if num_threads is not None else self.num_threads
+    async def forward(self, exec_pairs: List[Tuple[Any, Example]], num_threads: int = None) -> List[Any]:
 
-        executor = ParallelExecutor(
-            num_threads=num_threads,
-            max_errors=self.max_errors,
-            provide_traceback=self.provide_traceback,
-            disable_progress_bar=self.disable_progress_bar,
-        )
-
-        def process_pair(pair):
+        async def process_pair(pair):
             result = None
             module, example = pair
 
             if isinstance(example, Example):
-                result = module(**example.inputs())
+                result = await module(example)
             elif isinstance(example, dict):
-                result = module(**example)
+                result = await module(**example)
             elif isinstance(example, list) and module.__class__.__name__ == "Parallel":
-                result = module(example)
+                result = await module(example)
             elif isinstance(example, tuple):
-                result = module(*example)
+                result = await module(*example)
             else:
                 raise ValueError(f"Invalid example type: {type(example)}, only supported types are Example, dict, list and tuple")
             return result
 
         # Execute the processing function over the execution pairs
-        results = executor.execute(process_pair, exec_pairs)
+        results = await asyncio.gather(*[process_pair(pair) for pair in exec_pairs])
 
         if self.return_failed_examples:
             return results, self.failed_examples, self.exceptions
@@ -64,5 +56,5 @@ class Parallel:
             return results
 
 
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        return self.forward(*args, **kwargs)
+    async def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.forward(*args, **kwargs)

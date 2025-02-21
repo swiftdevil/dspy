@@ -18,8 +18,8 @@ class Module(BaseModule, metaclass=ProgramMeta):
         self._compiled = False
 
     @with_callbacks
-    def __call__(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
+    async def __call__(self, *args, **kwargs):
+        return await self.forward(*args, **kwargs)
 
     def named_predictors(self):
         from dspy.predict.predict import Predict
@@ -81,7 +81,7 @@ class Module(BaseModule, metaclass=ProgramMeta):
 
     #     return new_copy
 
-    def batch(
+    async def batch(
         self,
         examples,
         num_threads: int = 32,
@@ -114,10 +114,10 @@ class Module(BaseModule, metaclass=ProgramMeta):
 
         # Execute the forward method of Parallel
         if return_failed_examples:
-            results, failed_examples, exceptions = parallel_executor.forward(exec_pairs)
+            results, failed_examples, exceptions = await parallel_executor.forward(exec_pairs)
             return results, failed_examples, exceptions
         else:
-            results = parallel_executor.forward(exec_pairs)
+            results = await parallel_executor.forward(exec_pairs)
             return results
 
 

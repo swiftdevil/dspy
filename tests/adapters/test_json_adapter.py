@@ -5,9 +5,10 @@ import pytest
 from pydantic import create_model
 
 import dspy
+from tests.special_mocks import get_async_magic_mock
 
 
-def test_json_adapter_passes_structured_output_when_supported_by_model():
+async def test_json_adapter_passes_structured_output_when_supported_by_model():
     class OutputField3(pydantic.BaseModel):
         subfield1: int = pydantic.Field(description="Int subfield 1", ge=0, le=10)
         subfield2: float = pydantic.Field(description="Float subfield 2")
@@ -23,8 +24,8 @@ def test_json_adapter_passes_structured_output_when_supported_by_model():
 
     # Configure DSPy to use an OpenAI LM that supports structured outputs
     dspy.configure(lm=dspy.LM(model="openai/gpt4o"), adapter=dspy.JSONAdapter())
-    with mock.patch("litellm.completion") as mock_completion:
-        program(input1="Test input")
+    with mock.patch("litellm.acompletion", new_callable=get_async_magic_mock) as mock_completion:
+        await program(input1="Test input")
 
     def clean_schema_extra(field_name, field_info):
         attrs = dict(field_info.__repr_args__())
@@ -50,24 +51,24 @@ def test_json_adapter_passes_structured_output_when_supported_by_model():
 
     # Configure DSPy to use a model from a fake provider that doesn't support structured outputs
     dspy.configure(lm=dspy.LM(model="fakeprovider/fakemodel"), adapter=dspy.JSONAdapter())
-    with mock.patch("litellm.completion") as mock_completion:
-        program(input1="Test input")
+    with mock.patch("litellm.acompletion", new_callable=get_async_magic_mock) as mock_completion:
+        await program(input1="Test input")
 
     mock_completion.assert_called_once()
     _, call_kwargs = mock_completion.call_args
     assert response_format not in call_kwargs
 
 
-def test_json_adapter_falls_back_when_structured_outputs_fails():
+async def test_json_adapter_falls_back_when_structured_outputs_fails():
     class TestSignature(dspy.Signature):
         input1: str = dspy.InputField()
         output1: str = dspy.OutputField(desc="String output field")
 
     dspy.configure(lm=dspy.LM(model="openai/gpt4o"), adapter=dspy.JSONAdapter())
     program = dspy.Predict(TestSignature)
-    with mock.patch("litellm.completion") as mock_completion:
+    with mock.patch("litellm.acompletion", new_callable=get_async_magic_mock) as mock_completion:
         mock_completion.side_effect = [Exception("Bad structured outputs!"), mock_completion.return_value]
-        program(input1="Test input")
+        await program(input1="Test input")
         assert mock_completion.call_count == 2
         _, first_call_kwargs = mock_completion.call_args_list[0]
         assert issubclass(first_call_kwargs.get("response_format"), pydantic.BaseModel)
@@ -75,7 +76,7 @@ def test_json_adapter_falls_back_when_structured_outputs_fails():
         assert second_call_kwargs.get("response_format") == {"type": "json_object"}
 
 
-def test_json_adapter_with_structured_outputs_does_not_mutate_original_signature():
+async def test_json_adapter_with_structured_outputs_does_not_mutate_original_signature():
     class OutputField3(pydantic.BaseModel):
         subfield1: int = pydantic.Field(description="Int subfield 1")
         subfield2: float = pydantic.Field(description="Float subfield 2")
@@ -89,7 +90,7 @@ def test_json_adapter_with_structured_outputs_does_not_mutate_original_signature
 
     dspy.configure(lm=dspy.LM(model="openai/gpt4o"), adapter=dspy.JSONAdapter())
     program = dspy.Predict(TestSignature)
-    with mock.patch("litellm.completion"):
-        program(input1="Test input")
+    with mock.patch("litellm.acompletion", new_callable=get_async_magic_mock):
+        await program(input1="Test input")
 
     assert program.signature.output_fields == TestSignature.output_fields

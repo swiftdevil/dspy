@@ -62,7 +62,7 @@ class BaseCallback:
     ```
     """
 
-    def on_module_start(
+    async def on_module_start(
         self,
         call_id: str,
         instance: Any,
@@ -78,7 +78,7 @@ class BaseCallback:
         """
         pass
 
-    def on_module_end(
+    async def on_module_end(
         self,
         call_id: str,
         outputs: Optional[Any],
@@ -94,7 +94,7 @@ class BaseCallback:
         """
         pass
 
-    def on_lm_start(
+    async def on_lm_start(
         self,
         call_id: str,
         instance: Any,
@@ -110,7 +110,7 @@ class BaseCallback:
         """
         pass
 
-    def on_lm_end(
+    async def on_lm_end(
         self,
         call_id: str,
         outputs: Optional[Dict[str, Any]],
@@ -126,7 +126,7 @@ class BaseCallback:
         """
         pass
 
-    def on_adapter_format_start(
+    async def on_adapter_format_start(
         self,
         call_id: str,
         instance: Any,
@@ -142,7 +142,7 @@ class BaseCallback:
         """
         pass
 
-    def on_adapter_format_end(
+    async def on_adapter_format_end(
         self,
         call_id: str,
         outputs: Optional[Dict[str, Any]],
@@ -158,7 +158,7 @@ class BaseCallback:
         """
         pass
 
-    def on_adapter_parse_start(
+    async def on_adapter_parse_start(
         self,
         call_id: str,
         instance: Any,
@@ -174,7 +174,7 @@ class BaseCallback:
         """
         pass
 
-    def on_adapter_parse_end(
+    async def on_adapter_parse_end(
         self,
         call_id: str,
         outputs: Optional[Dict[str, Any]],
@@ -190,7 +190,7 @@ class BaseCallback:
         """
         pass
 
-    def on_tool_start(
+    async def on_tool_start(
         self,
         call_id: str,
         instance: Any,
@@ -206,7 +206,7 @@ class BaseCallback:
         """
         pass
 
-    def on_tool_end(
+    async def on_tool_end(
         self,
         call_id: str,
         outputs: Optional[Dict[str, Any]],
@@ -225,13 +225,13 @@ class BaseCallback:
 
 def with_callbacks(fn):
     @functools.wraps(fn)
-    def wrapper(instance, *args, **kwargs):
+    async def wrapper(instance, *args, **kwargs):
         # Combine global and local (per-instance) callbacks.
         callbacks = dspy.settings.get("callbacks", []) + getattr(instance, "callbacks", [])
 
         # If no callbacks are provided, just call the function
         if not callbacks:
-            return fn(instance, *args, **kwargs)
+            return await fn(instance, *args, **kwargs)
 
         # Generate call ID as the unique identifier for the call, this is useful for instrumentation.
         call_id = uuid.uuid4().hex
@@ -241,7 +241,7 @@ def with_callbacks(fn):
 
         for callback in callbacks:
             try:
-                _get_on_start_handler(callback, instance, fn)(call_id=call_id, instance=instance, inputs=inputs)
+                await _get_on_start_handler(callback, instance, fn)(call_id=call_id, instance=instance, inputs=inputs)
 
             except Exception as e:
                 logger.warning(f"Error when calling callback {callback}: {e}")
@@ -252,7 +252,7 @@ def with_callbacks(fn):
             parent_call_id = ACTIVE_CALL_ID.get()
             # Active ID must be set right before the function is called, not before calling the callbacks.
             ACTIVE_CALL_ID.set(call_id)
-            results = fn(instance, *args, **kwargs)
+            results = await fn(instance, *args, **kwargs)
             return results
         except Exception as e:
             exception = e
@@ -262,7 +262,7 @@ def with_callbacks(fn):
             ACTIVE_CALL_ID.set(parent_call_id)
             for callback in callbacks:
                 try:
-                    _get_on_end_handler(callback, instance, fn)(
+                    await _get_on_end_handler(callback, instance, fn)(
                         call_id=call_id,
                         outputs=results,
                         exception=exception,

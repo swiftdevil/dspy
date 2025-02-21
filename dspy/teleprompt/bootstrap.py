@@ -76,7 +76,7 @@ class BootstrapFewShot(Teleprompter):
         self.error_count = 0
         self.error_lock = threading.Lock()
 
-    def compile(self, student, *, teacher=None, trainset):
+    async def compile(self, student, *, teacher=None, trainset):
         self.trainset = trainset
 
         self._prepare_student_and_teacher(student, teacher)

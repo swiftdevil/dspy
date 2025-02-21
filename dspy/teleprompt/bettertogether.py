@@ -2,6 +2,8 @@ import logging
 import random
 from typing import Callable, List, Optional
 
+from sqlalchemy.util import await_only
+
 import dspy
 from dspy.primitives.example import Example
 from dspy.primitives.program import Program
@@ -44,7 +46,7 @@ class BetterTogether(Teleprompter):
 
         self.rng = random.Random(seed)
 
-    def compile(
+    async def compile(
         self,
         student: Program,
         trainset: List[Example],
@@ -72,12 +74,12 @@ class BetterTogether(Teleprompter):
         # of the examples in the original trainset
         trainset = trainset[:]
         logger.info("Compiling the student program...")
-        student = self._run_strategies(parsed_strategy, student, trainset, valset_ratio)
+        student = await self._run_strategies(parsed_strategy, student, trainset, valset_ratio)
         
         logger.info("BetterTogether has finished compiling the student program")
         return student
   
-    def _run_strategies(self, parsed_strategy, student, trainset, valset_ratio) -> Program:
+    async def _run_strategies(self, parsed_strategy, student, trainset, valset_ratio) -> Program:
         # Keep track of all the partial strategies/programs in parsed_strategy
         # "" corresponds to the initial student program
         candidate_programs = []
@@ -104,7 +106,7 @@ class BetterTogether(Teleprompter):
             if step_code == "p":
                 student = self._compile_prompt_optimizer(student, trainset, valset_ratio)
             elif step_code == "w":
-                student = self._compile_weight_optimizer(student, trainset)
+                student = await self._compile_weight_optimizer(student, trainset)
                 launched_flag = False
 
             # Record the program corresponding to the current strategy
@@ -142,7 +144,7 @@ class BetterTogether(Teleprompter):
 
         return student
     
-    def _compile_weight_optimizer(self, student, trainset) -> Program:
+    async def _compile_weight_optimizer(self, student, trainset) -> Program:
         logger.info("Preparing for weight optimization...")
 
         # Saving the LMs before compiling the weight optimizer
@@ -152,7 +154,7 @@ class BetterTogether(Teleprompter):
         # prompt optimizers are accepting a valset or encode a way to check if
         # a valset should be passed to an optimizer's compile.
         logger.info("Compiling the weight optimizer...")
-        student = self.weight_optimizer.compile(student, trainset=trainset)     
+        student = await self.weight_optimizer.compile(student, trainset=trainset)     
 
         # Updating the train kwargs for the new LMs. This is needed because the
         # train_kwargs of the optimizer is configured for the original LMs.

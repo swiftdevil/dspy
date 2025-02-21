@@ -8,7 +8,7 @@ import dspy
 from tests.reliability.utils import assert_program_output_correct, known_failing_models
 
 @pytest.mark.reliability
-def test_qa_with_pydantic_answer_model():
+async def test_qa_with_pydantic_answer_model():
     class Answer(pydantic.BaseModel):
         value: str
         certainty: float = pydantic.Field(
@@ -24,14 +24,15 @@ def test_qa_with_pydantic_answer_model():
 
     program = dspy.Predict(QA)
     question = "What is the capital of France?"
-    answer = program(question=question).answer
+    answer = await program(question=question)
+    answer = answer.answer
 
-    assert_program_output_correct(
+    await assert_program_output_correct(
         program_input=question,
         program_output=answer.value,
         grading_guidelines="The answer should be Paris. Answer should not contain extraneous information.",
     )
-    assert_program_output_correct(
+    await assert_program_output_correct(
         program_input=question,
         program_output=answer.comments,
         grading_guidelines=(
@@ -45,7 +46,7 @@ def test_qa_with_pydantic_answer_model():
 
 @pytest.mark.parametrize("module", [dspy.Predict, dspy.ChainOfThought])
 @pytest.mark.reliability
-def test_color_classification_using_enum(module):
+async def test_color_classification_using_enum(module):
     Color = Enum("Color", ["RED", "GREEN", "BLUE"])
 
     class Colorful(dspy.Signature):
@@ -57,13 +58,13 @@ def test_color_classification_using_enum(module):
     # the program is correctly extracting the color from the text; previous implementations have
     # produced invalid enum responses for "The sky is blue.", but they have produced valid enum
     # responses for "The sky is blue" (without the period).
-    color = program(text="The sky is blue.").color
+    color = await program(text="The sky is blue.")
 
-    assert color == Color.BLUE
+    assert color.color == Color.BLUE
 
 
 @pytest.mark.reliability
-def test_entity_extraction_with_multiple_primitive_outputs():
+async def test_entity_extraction_with_multiple_primitive_outputs():
     class ExtractEntityFromDescriptionOutput(pydantic.BaseModel):
         entity_hu: str = pydantic.Field(description="The extracted entity in Hungarian, cleaned and lowercased.")
         entity_en: str = pydantic.Field(description="The English translation of the extracted Hungarian entity.")
@@ -86,18 +87,19 @@ def test_entity_extraction_with_multiple_primitive_outputs():
     program = dspy.ChainOfThought(ExtractEntityFromDescription)
     description = "A kávé egy növényi eredetű ital, amelyet a kávébabból készítenek."
 
-    extracted_entity = program(description=description).entity
-    assert_program_output_correct(
+    extracted_entity = await program(description=description)
+    extracted_entity = extracted_entity.entity
+    await assert_program_output_correct(
         program_input=description,
         program_output=extracted_entity.entity_hu,
         grading_guidelines="The translation of the text into English should be equivalent to 'coffee'",
     )
-    assert_program_output_correct(
+    await assert_program_output_correct(
         program_input=description,
         program_output=extracted_entity.entity_hu,
         grading_guidelines="The text should be equivalent to 'coffee'",
     )
-    assert_program_output_correct(
+    await assert_program_output_correct(
         program_input=description,
         program_output=extracted_entity.categories,
         grading_guidelines=(
@@ -109,7 +111,7 @@ def test_entity_extraction_with_multiple_primitive_outputs():
 
 @pytest.mark.parametrize("module", [dspy.Predict, dspy.ChainOfThought])
 @pytest.mark.reliability
-def test_tool_calling_with_literals(module):
+async def test_tool_calling_with_literals(module):
     next_tool_names = [
         "get_docs",
         "finish",
@@ -150,7 +152,7 @@ def test_tool_calling_with_literals(module):
         user_intent: Literal["informational", "transactional", "exploratory"] = dspy.OutputField()
 
     program = dspy.Predict(ToolCalling)
-    prediction = program(
+    prediction = await program(
         question=(
             "Tell me more about the company's internal policy for paid time off (PTO), "
             "including as many details as possible. I want to know how PTO is accrued—are "
