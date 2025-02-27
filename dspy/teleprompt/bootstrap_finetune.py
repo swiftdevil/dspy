@@ -55,7 +55,7 @@ class BootstrapFinetune(FinetuneTeleprompter):
         self.exclude_demos = exclude_demos
         self.num_threads = num_threads
 
-   async def compile(
+    async def compile(
         self, student: Program, trainset: List[Example], teacher: Optional[Union[Program, List[Program]]] = None
     ) -> Program:
         # TODO: Print statements can be converted to logger.info if we ensure
