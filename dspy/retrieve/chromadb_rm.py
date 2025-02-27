@@ -27,7 +27,6 @@ try:
         EmbeddingFunction, Embeddings, D, validate_embeddings, normalize_embeddings,
 )
     from chromadb.config import Settings
-    from chromadb.utils import embedding_functions
 except ImportError:
     raise ImportError(
         "The chromadb library is required to use ChromadbRM. Install it with `pip install dspy-ai[chromadb]`",

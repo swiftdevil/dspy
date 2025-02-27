@@ -3,7 +3,8 @@ import threading
 
 from typing import Tuple, List, Any
 
-from ..primitives.example import Example
+from dspy.primitives.example import Example
+from dspy.utils.parallelizer import ParallelExecutor
 
 
 class Parallel:

@@ -45,7 +45,8 @@ def order_input_keys_in_string(unordered_repr):
     return ordered_repr
 
 async def create_dataset_summary(settings, trainset, view_data_batch_size, prompt_model, log_file=None, verbose=False):
-    if verbose: print("\nBootstrapping dataset summary (this will be used to generate instructions)...")
+    if verbose:
+        print("\nBootstrapping dataset summary (this will be used to generate instructions)...")
     upper_lim = min(len(trainset), view_data_batch_size)
     prompt_model = prompt_model if prompt_model else settings.lm
     with settings.context(lm=prompt_model) as prompt_settings:
@@ -63,7 +64,8 @@ async def create_dataset_summary(settings, trainset, view_data_batch_size, promp
             calls+=1
             if calls >= max_calls:
                 break
-            if verbose: print(f"b: {b}")
+            if verbose:
+                print(f"b: {b}")
             upper_lim = min(len(trainset), b+view_data_batch_size)
             with settings.context(lm=prompt_model) as prompt_settings:
                 output = await dspy.Predict(DatasetDescriptorWithPriorObservations, n=1, temperature=1.0)(prompt_settings, prior_observations=observations, examples=order_input_keys_in_string(trainset[b:upper_lim].__repr__()))
@@ -77,17 +79,20 @@ async def create_dataset_summary(settings, trainset, view_data_batch_size, promp
             if log_file: 
                 log_file.write(f"observations {observations}\n")
     except Exception as e:
-        if verbose: print(f"e {e}. using observations from past round for a summary.")
+        if verbose:
+            print(f"e {e}. using observations from past round for a summary.")
 
     if prompt_model:
         with settings.context(lm=prompt_model) as prompt_settings:
             summary = await dspy.Predict(ObservationSummarizer, n=1, temperature=1.0)(prompt_settings, observations=observations)
     else:
         summary = await dspy.Predict(ObservationSummarizer, n=1, temperature=1.0)(settings, observations=observations)
-    if verbose: print(f"summary: {summary}")
+    if verbose:
+        print(f"summary: {summary}")
     if log_file:
         log_file.write(f"summary: {summary}\n")
     
-    if verbose: print(f"\nGenerated summary: {strip_prefix(summary.summary)}\n")
+    if verbose:
+        print(f"\nGenerated summary: {strip_prefix(summary.summary)}\n")
 
     return strip_prefix(summary.summary)
