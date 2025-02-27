@@ -1,6 +1,7 @@
 import random
 from typing import List, Optional, Union
 
+from dspy.dsp.utils import Settings
 from dspy.predict.parameter import Parameter
 from dspy.primitives.prediction import Prediction
 from dspy.utils.callback import with_callbacks
@@ -38,23 +39,22 @@ class Retrieve(Parameter):
             setattr(self, name, value)
 
     @with_callbacks
-    def __call__(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
+    async def __call__(self, settings, *args, **kwargs):
+        return await self.forward(settings, *args, **kwargs)
 
-    def forward(
+    async def forward(
         self,
+        settings: Settings,
         query: str,
         k: Optional[int] = None,
         **kwargs,
     ) -> Union[List[str], Prediction, List[Prediction]]:
         k = k if k is not None else self.k
 
-        import dspy
-
-        if not dspy.settings.rm:
+        if not settings.rm:
             raise AssertionError("No RM is loaded.")
 
-        passages = dspy.settings.rm(query, k=k, **kwargs)
+        passages = await settings.rm(settings, query, k=k, **kwargs)
 
         from collections.abc import Iterable
         if not isinstance(passages, Iterable):

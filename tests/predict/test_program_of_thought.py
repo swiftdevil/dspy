@@ -15,9 +15,10 @@ async def test_pot_code_generation():
             {"reasoning": "Reason_B", "answer": "2"},
         ]
     )
-    dspy.settings.configure(lm=lm)
-    pot = ProgramOfThought(BasicQA)
-    res = await pot(question="What is 1+1?")
+    with dspy.context() as settings:
+        settings.configure(lm=lm)
+        pot = ProgramOfThought(BasicQA)
+        res = await pot(settings, question="What is 1+1?")
     assert res.answer == "2"
 
 
@@ -29,8 +30,9 @@ async def test_pot_code_generation_with_error():
             {"reasoning": "Reason_C", "answer": "2"},
         ]
     )
-    dspy.settings.configure(lm=lm)
+    with dspy.context() as settings:
+        settings.configure(lm=lm)
 
-    pot = ProgramOfThought(BasicQA)
-    res = await pot(question="What is 1+1?")
+        pot = ProgramOfThought(BasicQA)
+        res = await pot(settings, question="What is 1+1?")
     assert res.answer == "2"

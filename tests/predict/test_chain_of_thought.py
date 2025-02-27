@@ -11,5 +11,6 @@ async def test_initialization_with_string_signature():
         "reasoning",
         "answer",
     ]
-    result = await predict(question="What is 1+1?")
+    with dspy.context() as settings:
+        result = await predict(settings, question="What is 1+1?")
     assert result.answer == "2"

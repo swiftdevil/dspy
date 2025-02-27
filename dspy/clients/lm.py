@@ -305,19 +305,19 @@ def request_cache(maxsize: Optional[int] = None):
             # concurrently, e.g. during optimization and evaluation
             lock=threading.RLock(),
         )
-        def func_cached(key: str, request: Dict[str, Any], *args, **kwargs):
-            coro = func(request, *args, **kwargs)
+        def func_cached(key: str, settings: Settings, request: Dict[str, Any], *args, **kwargs):
+            coro = func(settings, request, *args, **kwargs)
             return asyncio.ensure_future(coro)
 
         @functools.wraps(func)
-        async def wrapper(request: dict, *args, **kwargs):
+        async def wrapper(settings: Settings, request: dict, *args, **kwargs):
             try:
                 key = cache_key(request)
             except Exception as e:
                 # If the cache key cannot be computed (e.g. because it contains a value that cannot
                 # be converted to JSON), bypass the cache and call the target function directly
-                return await func(request, *args, **kwargs)
-            return await func_cached(key, request, *args, **kwargs)
+                return await func(settings, request, *args, **kwargs)
+            return await func_cached(key, settings, request, *args, **kwargs)
 
         return wrapper
 

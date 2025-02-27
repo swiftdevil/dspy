@@ -77,7 +77,7 @@ class ReAct(Module):
     async def forward(self, settings, **input_args):
         trajectory = {}
         for idx in range(self.max_iters):
-            pred = await self._call_with_potential_trajectory_truncation(self.react, trajectory, **input_args)
+            pred = await self._call_with_potential_trajectory_truncation(settings, self.react, trajectory, **input_args)
 
             trajectory[f"thought_{idx}"] = pred.next_thought
             trajectory[f"tool_name_{idx}"] = pred.next_tool_name
@@ -95,22 +95,23 @@ class ReAct(Module):
                             parsed_tool_args[k] = arg_type.model_validate(v)
                             continue
                     parsed_tool_args[k] = v
-                trajectory[f"observation_{idx}"] = await self.tools[pred.next_tool_name](**parsed_tool_args)
+                trajectory[f"observation_{idx}"] = await self.tools[pred.next_tool_name](settings, **parsed_tool_args)
             except Exception as e:
                 trajectory[f"observation_{idx}"] = f"Failed to execute: {e}"
 
             if pred.next_tool_name == "finish":
                 break
 
-        extract = await self._call_with_potential_trajectory_truncation(self.extract, trajectory, **input_args)
+        extract = await self._call_with_potential_trajectory_truncation(settings, self.extract, trajectory, **input_args)
         return dspy.Prediction(trajectory=trajectory, **extract)
 
-    def _call_with_potential_trajectory_truncation(self, module, trajectory, **input_args):
+    async def _call_with_potential_trajectory_truncation(self, settings, module, trajectory, **input_args):
         while True:
             try:
-                return module(
+                return await module(
+                    settings,
                     **input_args,
-                    trajectory=self._format_trajectory(trajectory),
+                    trajectory=self._format_trajectory(settings, trajectory),
                 )
             except ContextWindowExceededError:
                 logger.warning("Trajectory exceeded the context window, truncating the oldest tool call information.")

@@ -199,16 +199,18 @@ async def test_tool_calling_with_pydantic_args():
             },
         ]
     )
-    dspy.settings.configure(lm=lm)
+    with dspy.context() as settings:
+        settings.configure(lm=lm)
 
-    outputs = await react(
-        participant_name="Alice",
-        event_info=CalendarEvent(
-            name="Science Fair",
-            date="Friday",
-            participants={"Alice": "female", "Bob": "male"},
-        ),
-    )
+        outputs = await react(
+            settings,
+            participant_name="Alice",
+            event_info=CalendarEvent(
+                name="Science Fair",
+                date="Friday",
+                participants={"Alice": "female", "Bob": "male"},
+            ),
+        )
     assert outputs.invitation_letter == "It's my honor to invite Alice to the Science Fair event on Friday."
 
     expected_trajectory = {
@@ -244,8 +246,9 @@ async def test_tool_calling_without_typehint():
             {"reasoning": "I added the numbers successfully", "c": 3},
         ]
     )
-    dspy.settings.configure(lm=lm)
-    outputs = await react(a=1, b=2)
+    with dspy.context() as settings:
+        settings.configure(lm=lm)
+        outputs = await react(settings, a=1, b=2)
 
     expected_trajectory = {
         "thought_0": "I need to add two numbers.",
@@ -263,7 +266,7 @@ async def test_tool_calling_without_typehint():
     assert outputs.trajectory == expected_trajectory
 
 
-def test_trajectory_truncation():
+async def test_trajectory_truncation():
     # Create a simple tool for testing
     def echo(text: str) -> str:
         return f"Echoed: {text}"
@@ -296,7 +299,8 @@ def test_trajectory_truncation():
     react.extract = lambda **kwargs: dspy.Prediction(output_text="Final output")
 
     # Call forward and get the result
-    result = react(input_text="test input")
+    with dspy.context() as settings:
+        result = await react(settings, input_text="test input")
 
     # Verify that older entries in the trajectory were truncated
     assert "thought_0" not in result.trajectory
