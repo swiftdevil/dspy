@@ -5,6 +5,7 @@ from litellm import ContextWindowExceededError
 from pydantic import BaseModel
 
 import dspy
+from dspy.dsp.utils import Settings
 from dspy.primitives.program import Module
 from dspy.primitives.tool import Tool
 from dspy.signatures.signature import ensure_signature
@@ -94,7 +95,7 @@ class ReAct(Module):
                         ):
                             parsed_tool_args[k] = arg_type.model_validate(v)
                             continue
-                        elif k == 'settings':
+                        elif k == 'settings' or v == Settings.__name__:
                             continue
                     parsed_tool_args[k] = v
                 trajectory[f"observation_{idx}"] = await self.tools[pred.next_tool_name](settings, **parsed_tool_args)

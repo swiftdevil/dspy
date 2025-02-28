@@ -4,6 +4,7 @@ from typing import Any, Callable, Optional, get_origin, get_type_hints
 from jsonschema import ValidationError, validate
 from pydantic import BaseModel, TypeAdapter
 
+from dspy.dsp.utils import Settings
 from dspy.utils.callback import with_callbacks
 
 
@@ -102,6 +103,8 @@ class Tool:
                 # Get json schema, and replace $ref with the actual schema
                 v_json_schema = self._resolve_pydantic_schema(v)
                 args[k] = v_json_schema
+            elif origin == Settings:
+                args[k] = v.__name__
             else:
                 args[k] = TypeAdapter(v).json_schema() or "Any"
             if arg_desc and k in arg_desc:
