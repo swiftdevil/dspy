@@ -1,3 +1,4 @@
+from __future__ import annotations
 import copy
 import threading
 from collections import OrderedDict
@@ -24,7 +25,7 @@ DEFAULT_CONFIG = dotdict(
 )
 
 class Settings(dotdict):
-    def copy(self):
+    def copy(self) -> Settings:
         return Settings({**settings, **self})
 
     @property
@@ -43,7 +44,9 @@ class Settings(dotdict):
         """
 
         try:
-            yield self.copy()
+            new_settings = self.copy()
+            new_settings.configure(**kwargs)
+            yield new_settings
         finally:
             pass
 
