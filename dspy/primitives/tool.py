@@ -113,7 +113,7 @@ class Tool:
         self.arg_types = self.arg_types or arg_types
 
     @with_callbacks
-    def __call__(self, **kwargs):
+    async def __call__(self, settings, **kwargs):
         for k, v in kwargs.items():
             if k not in self.args:
                 raise ValueError(f"Arg {k} is not in the tool's args.")
@@ -123,4 +123,4 @@ class Tool:
                     validate(instance=instance, schema=self.args[k])
             except ValidationError as e:
                 raise ValueError(f"Arg {k} is invalid: {e.message}")
-        return self.func(**kwargs)
+        return await self.func(settings, **kwargs)

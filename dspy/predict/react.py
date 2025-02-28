@@ -36,7 +36,7 @@ class ReAct(Module):
             ]
         )
 
-        async def finish_func(**kwargs):
+        async def finish_func(settings, **kwargs):
             return "Completed."
 
         tools["finish"] = Tool(
@@ -93,6 +93,8 @@ class ReAct(Module):
                             origin, BaseModel
                         ):
                             parsed_tool_args[k] = arg_type.model_validate(v)
+                            continue
+                        elif k == 'settings':
                             continue
                     parsed_tool_args[k] = v
                 trajectory[f"observation_{idx}"] = await self.tools[pred.next_tool_name](settings, **parsed_tool_args)
