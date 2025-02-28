@@ -89,7 +89,7 @@ class MIPROv2(Teleprompter):
         self.seed = seed
         self.rng = None
 
-    def compile(
+    async def compile(
         self,
         student: Any,
         *,
@@ -441,7 +441,7 @@ class MIPROv2(Teleprompter):
 
         return instruction_candidates
 
-    def _optimize_prompt_parameters(
+    async def _optimize_prompt_parameters(
         self,
         program: Any,
         instruction_candidates: Dict[int, List[str]],
@@ -465,7 +465,7 @@ class MIPROv2(Teleprompter):
         adjusted_num_trials = (num_trials + num_trials // minibatch_full_eval_steps + 1) if minibatch else num_trials
         logger.info(f"== Trial {1} / {adjusted_num_trials} - Full Evaluation of Default Program ==")
 
-        default_score, baseline_results = eval_candidate_program(
+        default_score, baseline_results = await eval_candidate_program(
             len(valset), valset, program, evaluate, self.rng, return_all_scores=True
         )
         logger.info(f"Default program score: {default_score}\n")

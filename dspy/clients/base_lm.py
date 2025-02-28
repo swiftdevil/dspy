@@ -13,7 +13,7 @@ class BaseLM(ABC):
         self.history = []
 
     @abstractmethod
-    def __call__(self, prompt=None, messages=None, **kwargs):
+    def __call__(self, settings, prompt=None, messages=None, **kwargs):
         pass
 
     def inspect_history(self, n: int = 1):

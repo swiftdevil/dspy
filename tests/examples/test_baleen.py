@@ -34,15 +34,15 @@ class SimplifiedBaleen(dspy.Module):
         self.generate_answer = dspy.ChainOfThought(GenerateAnswer)
         self.max_hops = max_hops
 
-    def forward(self, question):
+    async def forward(self, settings, question):
         context = []
 
         for hop in range(self.max_hops):
-            query = self.generate_query[hop](context=context, question=question).query
-            passages = self.retrieve(query).passages
-            context = deduplicate(context + passages)
+            query = await self.generate_query[hop](context=context, question=question)
+            passages = await self.retrieve(query.query)
+            context = deduplicate(context + passages.passages)
 
-        pred = self.generate_answer(context=context, question=question)
+        pred = await self.generate_answer(context=context, question=question)
         return dspy.Prediction(context=context, answer=pred.answer)
 
 
@@ -59,7 +59,7 @@ def load_hotpotqa():
 
 # @pytest.mark.slow_test
 # TODO: Find a way to make this test run without openai
-def _test_baleen():
+async def _test_baleen():
     lm = dspy.OpenAI(model="gpt-3.5-turbo")
     rm = dspy.ColBERTv2(url="http://20.102.90.50:2017/wiki17_abstracts")
     dspy.settings.configure(lm=lm, rm=rm)
@@ -69,7 +69,7 @@ def _test_baleen():
 
     # Get the prediction. This contains `pred.context` and `pred.answer`.
     uncompiled_baleen = SimplifiedBaleen()  # uncompiled (i.e., zero-shot) program
-    pred = uncompiled_baleen(my_question)
+    pred = await uncompiled_baleen(my_question)
 
     assert pred.answer == "five"
 

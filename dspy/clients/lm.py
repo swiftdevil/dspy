@@ -1,3 +1,4 @@
+import asyncio
 import functools
 import logging
 import os
@@ -15,6 +16,7 @@ from anyio.streams.memory import MemoryObjectSendStream
 from asyncer import syncify
 from cachetools import LRUCache, cached
 from litellm import RetryPolicy
+from sqlalchemy.util import await_only
 
 import dspy
 from dspy.adapters.base import Adapter
@@ -24,6 +26,7 @@ from dspy.clients.utils_finetune import TrainDataFormat
 from dspy.utils.callback import BaseCallback, with_callbacks
 
 from .base_lm import BaseLM
+from ..dsp.utils import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +102,7 @@ class LM(BaseLM):
             self.kwargs = dict(temperature=temperature, max_tokens=max_tokens, **kwargs)
 
     @with_callbacks
-    def __call__(self, prompt=None, messages=None, **kwargs):
+    async def __call__(self, settings, prompt=None, messages=None, **kwargs):
         # Build the request.
         cache = kwargs.pop("cache", self.cache)
         # disable cache will also disable in memory cache
@@ -111,14 +114,16 @@ class LM(BaseLM):
         if cache_in_memory:
             completion = cached_litellm_completion if self.model_type == "chat" else cached_litellm_text_completion
 
-            response = completion(
+            response = await completion(
+                settings=settings,
                 request=dict(model=self.model, messages=messages, **kwargs),
                 num_retries=self.num_retries,
             )
         else:
             completion = litellm_completion if self.model_type == "chat" else litellm_text_completion
 
-            response = completion(
+            response = await completion(
+                settings=settings,
                 request=dict(model=self.model, messages=messages, **kwargs),
                 num_retries=self.num_retries,
                 # only leverage LiteLLM cache in this case
@@ -281,7 +286,7 @@ def request_cache(maxsize: Optional[int] = None):
             elif isinstance(value, pydantic.BaseModel):
                 return value.model_dump()
             elif callable(value) and hasattr(value, "__code__") and hasattr(value.__code__, "co_code"):
-                return value.__code__.co_code.decode("utf-8")
+                return value.__code__.co_code.decode("utf-16")
             else:
                 # Note: We don't attempt to compute a hash of the value, since the default
                 # implementation of hash() is id(), which may collide if the same memory address
@@ -300,18 +305,19 @@ def request_cache(maxsize: Optional[int] = None):
             # concurrently, e.g. during optimization and evaluation
             lock=threading.RLock(),
         )
-        def func_cached(key: str, request: Dict[str, Any], *args, **kwargs):
-            return func(request, *args, **kwargs)
+        def func_cached(key: str, settings: Settings, request: Dict[str, Any], *args, **kwargs):
+            coro = func(settings, request, *args, **kwargs)
+            return asyncio.ensure_future(coro)
 
         @functools.wraps(func)
-        def wrapper(request: dict, *args, **kwargs):
+        async def wrapper(settings: Settings, request: dict, *args, **kwargs):
             try:
                 key = cache_key(request)
-            except Exception:
+            except Exception as e:
                 # If the cache key cannot be computed (e.g. because it contains a value that cannot
                 # be converted to JSON), bypass the cache and call the target function directly
-                return func(request, *args, **kwargs)
-            return func_cached(key, request, *args, **kwargs)
+                return await func(settings, request, *args, **kwargs)
+            return await func_cached(key, settings, request, *args, **kwargs)
 
         return wrapper
 
@@ -319,15 +325,16 @@ def request_cache(maxsize: Optional[int] = None):
 
 
 @request_cache(maxsize=None)
-def cached_litellm_completion(request: Dict[str, Any], num_retries: int):
-    return litellm_completion(
+async def cached_litellm_completion(settings: Settings, request: Dict[str, Any], num_retries: int):
+    return await litellm_completion(
+        settings,
         request,
         cache={"no-cache": False, "no-store": False},
         num_retries=num_retries,
     )
 
 
-def litellm_completion(request: Dict[str, Any], num_retries: int, cache={"no-cache": True, "no-store": True}):
+async def litellm_completion(settings: Settings, request: Dict[str, Any], num_retries: int, cache={"no-cache": True, "no-store": True}):
     retry_kwargs = dict(
         retry_policy=_get_litellm_retry_policy(num_retries),
         # In LiteLLM version 1.55.3 (the first version that supports retry_policy as an argument
@@ -336,9 +343,9 @@ def litellm_completion(request: Dict[str, Any], num_retries: int, cache={"no-cac
         max_retries=0,
     )
 
-    stream = dspy.settings.send_stream
+    stream = settings.send_stream
     if stream is None:
-        return litellm.completion(
+        return await litellm.acompletion(
             cache=cache,
             **retry_kwargs,
             **request,
@@ -347,7 +354,6 @@ def litellm_completion(request: Dict[str, Any], num_retries: int, cache={"no-cac
     # The stream is already opened, and will be closed by the caller.
     stream = cast(MemoryObjectSendStream, stream)
 
-    @syncify
     async def stream_completion():
         response = await litellm.acompletion(
             cache=cache,
@@ -361,19 +367,20 @@ def litellm_completion(request: Dict[str, Any], num_retries: int, cache={"no-cac
             await stream.send(chunk)
         return litellm.stream_chunk_builder(chunks)
 
-    return stream_completion()
+    return await stream_completion()
 
 
 @request_cache(maxsize=None)
-def cached_litellm_text_completion(request: Dict[str, Any], num_retries: int):
+def cached_litellm_text_completion(settings: Settings, request: Dict[str, Any], num_retries: int):
     return litellm_text_completion(
+        settings,
         request,
         num_retries=num_retries,
         cache={"no-cache": False, "no-store": False},
     )
 
 
-def litellm_text_completion(request: Dict[str, Any], num_retries: int, cache={"no-cache": True, "no-store": True}):
+def litellm_text_completion(settings: Settings, request: Dict[str, Any], num_retries: int, cache={"no-cache": True, "no-store": True}):
     # Extract the provider and model from the model string.
     # TODO: Not all the models are in the format of "provider/model"
     model = request.pop("model").split("/", 1)
