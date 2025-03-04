@@ -7,7 +7,7 @@ import threading
 import uuid
 from datetime import datetime
 from hashlib import sha256
-from typing import Any, Dict, List, Literal, Optional, cast
+from typing import Any, Dict, List, Literal, Optional, cast, TYPE_CHECKING
 
 import litellm
 import pydantic
@@ -19,11 +19,12 @@ from litellm import RetryPolicy
 from sqlalchemy.util import await_only
 
 import dspy
-from dspy.adapters.base import Adapter
 from dspy.clients.openai import OpenAIProvider
 from dspy.clients.provider import Provider, TrainingJob
 from dspy.clients.utils_finetune import TrainDataFormat
 from dspy.utils.callback import BaseCallback, with_callbacks
+if TYPE_CHECKING:
+    from dspy.adapters.base import Adapter
 
 from .base_lm import BaseLM
 from ..dsp.utils import Settings
@@ -224,7 +225,7 @@ class LM(BaseLM):
         # providers in this file. Is this okay?
         return Provider()
 
-    def infer_adapter(self) -> Adapter:
+    def infer_adapter(self) -> "Adapter":
         import dspy
 
         if dspy.settings.adapter:
@@ -251,6 +252,10 @@ class LM(BaseLM):
                 new_instance.kwargs[key] = value
 
         return new_instance
+    
+    def dump_state(self):
+        state_keys = ["model", "model_type", "cache", "cache_in_memory", "num_retries", "finetuning_model", "launch_kwargs", "train_kwargs"]
+        return { key: getattr(self, key) for key in state_keys } | self.kwargs
 
 
 def request_cache(maxsize: Optional[int] = None):

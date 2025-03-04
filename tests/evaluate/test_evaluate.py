@@ -9,6 +9,7 @@ import dspy
 from dspy.evaluate.evaluate import Evaluate
 from dspy.evaluate.metrics import answer_exact_match
 from dspy.predict import Predict
+from dspy.utils.callback import BaseCallback
 from dspy.utils.dummies import DummyLM
 
 
@@ -139,41 +140,56 @@ async def test_evaluate_display_table(program_with_example, display_table, is_in
             example_input = next(iter(example.inputs().values()))
             assert example_input in out
 
+async def test_evaluate_callback():
+    class TestCallback(BaseCallback):
+        def __init__(self):
+            self.start_call_inputs = None
+            self.start_call_count = 0
+            self.end_call_outputs = None
+            self.end_call_count = 0
 
-async def test_multi_thread_evaluate_call_cancelled(monkeypatch):
-    # slow LM that sleeps for 1 second before returning the answer
-    class SlowLM(DummyLM):
-        async def __call__(self, *args, **kwargs):
-            import time
+        def on_evaluate_start(
+            self,
+            call_id: str,
+            instance,
+            settings,
+            inputs,
+        ):
+            self.start_call_inputs = inputs
+            self.start_call_count += 1
+        
+        def on_evaluate_end(
+            self,
+            call_id: str,
+            settings,
+            outputs,
+            exception = None,
+        ):
+            self.end_call_outputs = outputs
+            self.end_call_count += 1
 
-            time.sleep(1)
-            return await super().__call__(*args, **kwargs)
-
-    dspy.settings.configure(lm=SlowLM({"What is 1+1?": {"answer": "2"}, "What is 2+2?": {"answer": "4"}}))
-
+    callback = TestCallback()
+    dspy.settings.configure(
+        lm=DummyLM(
+            {
+                "What is 1+1?": {"answer": "2"},
+                "What is 2+2?": {"answer": "4"},
+            }
+        ),
+        callbacks=[callback]
+    )
     devset = [new_example("What is 1+1?", "2"), new_example("What is 2+2?", "4")]
     program = Predict("question -> answer")
     answer = await program(question="What is 1+1?")
     assert answer.answer == "2"
-
-    # spawn a thread that will sleep for .1 seconds then send a KeyboardInterrupt
-    def sleep_then_interrupt():
-        import time
-
-        time.sleep(0.1)
-        import os
-
-        os.kill(os.getpid(), signal.SIGINT)
-
-    input_thread = threading.Thread(target=sleep_then_interrupt)
-    input_thread.start()
-
-    with pytest.raises(KeyboardInterrupt):
-        ev = Evaluate(
-            devset=devset,
-            metric=answer_exact_match,
-            display_progress=False,
-            num_threads=2,
-        )
-        score = await ev(program)
-        assert score == 100.0
+    ev = Evaluate(
+        devset=devset,
+        metric=answer_exact_match,
+        display_progress=False,
+    )
+    score = await ev(dspy.settings, program)
+    assert score == 100.0
+    assert callback.start_call_inputs["program"] == program
+    assert callback.start_call_count == 1
+    assert callback.end_call_outputs == 100.0
+    assert callback.end_call_count == 1

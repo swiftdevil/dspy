@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 #replace_package_name_marker
 name="dspy-async"
 #replace_package_version_marker
-version="2.6.9rc1"
+version="2.6.10"
 description = "DSPy Async"
 readme = "README.md"
 authors = [{ name = "Omar Khattab", email = "okhattab@stanford.edu" }, { name = "Will Swift", email = "will@afterdarkstudio.dev"}]
