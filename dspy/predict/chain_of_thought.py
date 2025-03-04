@@ -16,5 +16,5 @@ class ChainOfThought(Module):
         
         self.predict = dspy.Predict(extended_signature, **config)
 
-    async def forward(self, settings, **kwargs):
-        return await self.predict(settings, **kwargs)
+    async def forward(self, settings, *args, **kwargs):
+        return await self.predict(settings, *args, **kwargs)

@@ -52,7 +52,7 @@ class Adapter(ABC):
             from dspy.adapters.json_adapter import JSONAdapter
 
             if not isinstance(self, JSONAdapter):
-                return JSONAdapter()(lm, lm_kwargs, signature, demos, inputs)
+                return await JSONAdapter()(settings, lm, lm_kwargs, signature, demos, inputs)
             raise e
 
     @abstractmethod

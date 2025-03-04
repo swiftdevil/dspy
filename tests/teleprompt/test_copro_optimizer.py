@@ -5,21 +5,21 @@ from dspy.utils.dummies import DummyLM
 
 
 # Define a simple metric function for testing
-def simple_metric(example, prediction):
+async def simple_metric(settings, example, prediction):
     # Simplified metric for testing: true if prediction matches expected output
-    return example.output == prediction.output
+    return example.answer == prediction.answer
 
 
 # Example training and validation sets
 trainset = [
-    Example(input="Question: What is the color of the sky?", output="blue").with_inputs("input"),
-    Example(input="Question: What does the fox say?", output="Ring-ding-ding-ding-dingeringeding!").with_inputs(
+    Example(input="Question: What is the color of the sky?", answer="blue").with_inputs("input"),
+    Example(input="Question: What does the fox say?", answer="Ring-ding-ding-ding-dingeringeding!").with_inputs(
         "input"
     ),
 ]
 
 
-def test_signature_optimizer_initialization():
+async def test_signature_optimizer_initialization():
     optimizer = COPRO(metric=simple_metric, breadth=2, depth=1, init_temperature=1.4)
     assert optimizer.metric == simple_metric, "Metric not correctly initialized"
     assert optimizer.breadth == 2, "Breadth not correctly initialized"
@@ -33,11 +33,11 @@ class SimpleModule(dspy.Module):
         # COPRO doesn't work with dspy.Predict
         self.predictor = dspy.ChainOfThought(signature)
 
-    def forward(self, **kwargs):
-        return self.predictor(**kwargs)
+    async def forward(self, settings, *args, **kwargs):
+        return await self.predictor(settings, *args, **kwargs)
 
 
-def test_signature_optimizer_optimization_process():
+async def test_signature_optimizer_optimization_process():
     optimizer = COPRO(metric=simple_metric, breadth=2, depth=1, init_temperature=1.4)
     dspy.settings.configure(
         lm=DummyLM(
@@ -50,11 +50,11 @@ def test_signature_optimizer_optimization_process():
         )
     )
 
-    student = SimpleModule("input -> output")
+    student = SimpleModule("input -> answer")
 
     # Assuming the compile method of COPRO requires a student module, a development set, and evaluation kwargs
-    optimized_student = optimizer.compile(
-        student, trainset=trainset, eval_kwargs={"num_threads": 1, "display_progress": False}
+    optimized_student = await optimizer.compile(
+        dspy.settings, student, trainset=trainset, eval_kwargs={"num_threads": 1, "display_progress": False}
     )
 
     # Check that the optimized student has been modified from the original

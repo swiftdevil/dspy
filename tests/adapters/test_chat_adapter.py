@@ -67,10 +67,9 @@ async def test_chat_adapter_quotes_literals_as_expected(
 
     program = dspy.Predict(TestSignature)
 
-    dspy.configure(lm=dspy.LM(model="openai/gpt4o"), adapter=dspy.ChatAdapter())
-
-    with mock.patch("litellm.acompletion", new_callable=get_async_magic_mock) as mock_completion:
-        await program(input_text=input_value)
+    with dspy.context(lm=dspy.LM(model="openai/gpt4o"), adapter=dspy.ChatAdapter()) as settings:
+        with mock.patch("litellm.acompletion", new_callable=get_async_magic_mock) as mock_completion:
+            await program(settings, input_text=input_value)
 
     mock_completion.assert_called_once()
     _, call_kwargs = mock_completion.call_args

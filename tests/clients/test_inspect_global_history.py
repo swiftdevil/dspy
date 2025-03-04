@@ -10,13 +10,16 @@ def clear_history():
 
 async def test_inspect_history_basic(capsys):
     # Configure a DummyLM with some predefined responses
-    lm = DummyLM([{"response": "Hello"}, {"response": "How are you?"}])
+    lm = DummyLM([{"response": "Hello"}, {"response": "How are you?"}, {"response": "That's great!"}])
     dspy.settings.configure(lm=lm)
     
     # Make some calls to generate history
     predictor = dspy.Predict("query: str -> response: str")
-    await predictor(query="Hi")
-    await predictor(query="What's up?")
+    with dspy.context() as settings:
+        await predictor(settings, query="Hi")
+    with dspy.context() as settings:
+        await predictor(settings, query="What's up?")
+    await predictor(dspy.settings, query="Just fixing some tests")
     
     # Test inspecting all history
     history = GLOBAL_HISTORY
@@ -35,9 +38,9 @@ async def test_inspect_history_with_n(capsys):
     
     # Generate some history
     predictor = dspy.Predict("query: str -> response: str")
-    await predictor(query="First")
-    await predictor(query="Second")
-    await predictor(query="Third")
+    await predictor(dspy.settings, query="First")
+    await predictor(dspy.settings, query="Second")
+    await predictor(dspy.settings, query="Third")
     
     dspy.inspect_history(n=2)
     # Test getting last 2 entries
@@ -62,8 +65,8 @@ async def test_inspect_history_n_larger_than_history(capsys):
     dspy.settings.configure(lm=lm)
     
     predictor = dspy.Predict("query: str -> response: str")
-    await predictor(query="Query 1")
-    await predictor(query="Query 2")
+    await predictor(dspy.settings, query="Query 1")
+    await predictor(dspy.settings, query="Query 2")
     
     # Request more entries than exist
     dspy.inspect_history(n=5)

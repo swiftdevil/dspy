@@ -23,9 +23,9 @@ async def test_json_adapter_passes_structured_output_when_supported_by_model():
     program = dspy.Predict(TestSignature)
 
     # Configure DSPy to use an OpenAI LM that supports structured outputs
-    dspy.configure(lm=dspy.LM(model="openai/gpt4o"), adapter=dspy.JSONAdapter())
-    with mock.patch("litellm.acompletion", new_callable=get_async_magic_mock) as mock_completion:
-        await program(input1="Test input")
+    with dspy.context(lm=dspy.LM(model="openai/gpt4o"), adapter=dspy.JSONAdapter()) as settings:
+        with mock.patch("litellm.acompletion", new_callable=get_async_magic_mock) as mock_completion:
+            await program(settings, input1="Test input")
 
     def clean_schema_extra(field_name, field_info):
         attrs = dict(field_info.__repr_args__())
@@ -50,9 +50,9 @@ async def test_json_adapter_passes_structured_output_when_supported_by_model():
         )
 
     # Configure DSPy to use a model from a fake provider that doesn't support structured outputs
-    dspy.configure(lm=dspy.LM(model="fakeprovider/fakemodel"), adapter=dspy.JSONAdapter())
-    with mock.patch("litellm.acompletion", new_callable=get_async_magic_mock) as mock_completion:
-        await program(input1="Test input")
+    with dspy.context(lm=dspy.LM(model="fakeprovider/fakemodel"), adapter=dspy.JSONAdapter()) as settings:
+        with mock.patch("litellm.acompletion", new_callable=get_async_magic_mock) as mock_completion:
+            await program(settings, input1="Test input")
 
     mock_completion.assert_called_once()
     _, call_kwargs = mock_completion.call_args
@@ -64,16 +64,16 @@ async def test_json_adapter_falls_back_when_structured_outputs_fails():
         input1: str = dspy.InputField()
         output1: str = dspy.OutputField(desc="String output field")
 
-    dspy.configure(lm=dspy.LM(model="openai/gpt4o"), adapter=dspy.JSONAdapter())
-    program = dspy.Predict(TestSignature)
-    with mock.patch("litellm.acompletion", new_callable=get_async_magic_mock) as mock_completion:
-        mock_completion.side_effect = [Exception("Bad structured outputs!"), mock_completion.return_value]
-        await program(input1="Test input")
-        assert mock_completion.call_count == 2
-        _, first_call_kwargs = mock_completion.call_args_list[0]
-        assert issubclass(first_call_kwargs.get("response_format"), pydantic.BaseModel)
-        _, second_call_kwargs = mock_completion.call_args_list[1]
-        assert second_call_kwargs.get("response_format") == {"type": "json_object"}
+    with dspy.context(lm=dspy.LM(model="openai/gpt4o"), adapter=dspy.JSONAdapter()) as settings:
+        program = dspy.Predict(TestSignature)
+        with mock.patch("litellm.acompletion", new_callable=get_async_magic_mock) as mock_completion:
+            mock_completion.side_effect = [Exception("Bad structured outputs!"), mock_completion.return_value]
+            await program(settings, input1="Test input")
+            assert mock_completion.call_count == 2
+            _, first_call_kwargs = mock_completion.call_args_list[0]
+            assert issubclass(first_call_kwargs.get("response_format"), pydantic.BaseModel)
+            _, second_call_kwargs = mock_completion.call_args_list[1]
+            assert second_call_kwargs.get("response_format") == {"type": "json_object"}
 
 
 async def test_json_adapter_with_structured_outputs_does_not_mutate_original_signature():
@@ -88,9 +88,9 @@ async def test_json_adapter_with_structured_outputs_does_not_mutate_original_sig
         output3: OutputField3 = dspy.OutputField(desc="Nested output field")
         output4_unannotated = dspy.OutputField(desc="Unannotated output field")
 
-    dspy.configure(lm=dspy.LM(model="openai/gpt4o"), adapter=dspy.JSONAdapter())
-    program = dspy.Predict(TestSignature)
-    with mock.patch("litellm.acompletion", new_callable=get_async_magic_mock):
-        await program(input1="Test input")
+    with dspy.context(lm=dspy.LM(model="openai/gpt4o"), adapter=dspy.JSONAdapter()) as settings:
+        program = dspy.Predict(TestSignature)
+        with mock.patch("litellm.acompletion", new_callable=get_async_magic_mock):
+            await program(settings, input1="Test input")
 
     assert program.signature.output_fields == TestSignature.output_fields

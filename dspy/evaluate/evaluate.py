@@ -7,6 +7,7 @@ import tqdm
 
 import dspy
 from dspy import Parallel
+from dspy.dsp.utils import Settings
 from dspy.utils.parallelizer import ParallelExecutor
 
 try:
@@ -86,6 +87,7 @@ class Evaluate:
 
     async def __call__(
         self,
+        settings: Settings,
         program: "dspy.Module",
         metric: Optional[Callable] = None,
         devset: Optional[List["dspy.Example"]] = None,
@@ -147,7 +149,7 @@ class Evaluate:
 
         async def process_item(settings, example):
             prediction = await program(settings, **example.inputs())
-            score = metric(example, prediction)
+            score = await metric(settings, example, prediction)
 
             # Increment assert and suggest failures to program's attributes
             if hasattr(program, "_assert_failures"):
@@ -157,7 +159,7 @@ class Evaluate:
 
             return prediction, score
 
-        results = await executor([(process_item, example) for example in devset])
+        results = await executor(settings, [(process_item, example) for example in devset])
         assert len(devset) == len(results)
 
         results = [((dspy.Prediction(), self.failure_score) if r is None else r) for r in results]

@@ -45,19 +45,19 @@ async def test_lm_calls_are_cached_across_lm_instances(litellm_test_server, temp
         api_base=api_base,
         api_key="fakekey",
     )
-    await lm1("Example query")
+    await lm1(dspy.settings, "Example query")
     lm2 = dspy.LM(
         model="openai/dspy-test-model",
         api_base=api_base,
         api_key="fakekey",
     )
-    await lm2("Example query")
+    await lm2(dspy.settings, "Example query")
     request_logs = read_litellm_test_server_request_logs(server_log_file_path)
     assert len(request_logs) == 1
 
     # Call one of the LMs with new text and verify that a new API request is sent to the
     # LiteLLM server
-    await lm1("New query")
+    await lm1(dspy.settings, "New query")
     request_logs = read_litellm_test_server_request_logs(server_log_file_path)
     assert len(request_logs) == 2
 
@@ -68,8 +68,8 @@ async def test_lm_calls_are_cached_across_lm_instances(litellm_test_server, temp
         api_base=api_base,
         api_key="fakekey",
     )
-    await lm3("Example query")
-    await lm3("Example query")
+    await lm3(dspy.settings, "Example query")
+    await lm3(dspy.settings, "Example query")
     request_logs = read_litellm_test_server_request_logs(server_log_file_path)
     assert len(request_logs) == 3
 
@@ -86,7 +86,7 @@ async def test_lm_calls_are_cached_across_interpreter_sessions(litellm_test_serv
         api_base=api_base,
         api_key="fakekey",
     )
-    await lm1("Example query")
+    await lm1(dspy.settings, "Example query")
 
     request_logs = read_litellm_test_server_request_logs(server_log_file_path)
     assert len(request_logs) == 0
@@ -100,13 +100,13 @@ async def test_lm_calls_are_cached_in_memory_when_expected(litellm_test_server, 
         api_base=api_base,
         api_key="fakekey",
     )
-    await lm1("Example query")
+    await lm1(dspy.settings, "Example query")
     # Remove the disk cache, after which the LM must rely on in-memory caching
     shutil.rmtree(temporary_blank_cache_dir)
-    await lm1("Example query2")
-    await lm1("Example query2")
-    await lm1("Example query2")
-    await lm1("Example query2")
+    await lm1(dspy.settings, "Example query2")
+    await lm1(dspy.settings, "Example query2")
+    await lm1(dspy.settings, "Example query2")
+    await lm1(dspy.settings, "Example query2")
 
     request_logs = read_litellm_test_server_request_logs(server_log_file_path)
     assert len(request_logs) == 2
@@ -122,8 +122,8 @@ async def test_lm_calls_skip_in_memory_cache_if_key_not_computable():
             model="fakemodel/fakemodel",
             non_json_serializable=NonJsonSerializable(),
         )
-        await lm("Example query")
-        await lm("Example query")
+        await lm(dspy.settings, "Example query")
+        await lm(dspy.settings, "Example query")
 
         assert mock_litellm_completion.call_count == 2
 
@@ -138,8 +138,8 @@ async def test_lm_calls_with_callables_are_cached_as_expected():
             azure_ad_token_provider=lambda *args, **kwargs: None,
         )
         # Invoke the LM twice; the second call should be cached in memory
-        await lm_with_callable("Query")
-        await lm_with_callable("Query")
+        await lm_with_callable(dspy.settings, "Query")
+        await lm_with_callable(dspy.settings, "Query")
 
         # Define and invoke a nearly-identical LM that lacks the callable kwarg,
         # which should not hit the in-memory cache
@@ -148,7 +148,7 @@ async def test_lm_calls_with_callables_are_cached_as_expected():
             api_base="fakebase",
             api_key="fakekey",
         )
-        await lm_without_callable("Query")
+        await lm_without_callable(dspy.settings, "Query")
 
         assert mock_completion.call_count == 2
 
@@ -161,6 +161,6 @@ async def test_lms_called_expected_number_of_times_for_cache_key_generation_fail
             api_base="fakebase",
             api_key="fakekey",
         )
-        await lm("Do not retry")
+        await lm(dspy.settings, "Do not retry")
 
     assert mock_completion.call_count == 1

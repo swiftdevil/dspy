@@ -120,7 +120,7 @@ class COPRO(Teleprompter):
         assert hasattr(predictor, "signature")
         predictor.signature = updated_signature
 
-    async def compile(self, student, *, trainset, eval_kwargs):
+    async def compile(self, settings, student, *, trainset, eval_kwargs):
         """
         optimizes `signature` of `student` program - note that it may be zero-shot or already pre-optimized (demos already chosen - `demos != []`)
 
@@ -156,18 +156,18 @@ class COPRO(Teleprompter):
             basic_instruction = self._get_signature(predictor).instructions
             basic_prefix = self._get_signature(predictor).fields[last_key].json_schema_extra["prefix"]
             if self.prompt_model:
-                with dspy.settings.context(lm=self.prompt_model):
+                with dspy.context(lm=self.prompt_model) as settings:
                     instruct = await dspy.Predict(
                         BasicGenerateInstruction,
                         n=self.breadth - 1,
                         temperature=self.init_temperature,
-                    )(basic_instruction=basic_instruction)
+                    )(settings, basic_instruction=basic_instruction)
             else:
                 instruct = await dspy.Predict(
                     BasicGenerateInstruction,
                     n=self.breadth - 1,
                     temperature=self.init_temperature,
-                )(basic_instruction=basic_instruction)
+                )(dspy.settings, basic_instruction=basic_instruction)
             # Add in our initial prompt as a candidate as well
             instruct.completions.proposed_instruction.append(basic_instruction)
             instruct.completions.proposed_prefix_for_output_field.append(basic_prefix)
@@ -225,7 +225,7 @@ class COPRO(Teleprompter):
                         f"At Depth {d+1}/{self.depth}, Evaluating Prompt Candidate #{c_i+1}/{len(candidates_)} for "
                         f"Predictor {p_i+1} of {len(module.predictors())}.",
                     )
-                    score = await evaluate(module_clone, devset=trainset, **eval_kwargs)
+                    score = await evaluate(settings, module_clone, devset=trainset, **eval_kwargs)
                     if self.prompt_model:
                         logger.debug(f"prompt_model.inspect_history(n=1) {self.prompt_model.inspect_history(n=1)}")
                     total_calls += 1
