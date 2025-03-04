@@ -7,13 +7,13 @@ from dspy.utils.dummies import DummyLM
 # Define a simple metric function for testing
 async def simple_metric(settings, example, prediction):
     # Simplified metric for testing: true if prediction matches expected output
-    return example.answer == prediction.answer
+    return example.output == prediction.output
 
 
 # Example training and validation sets
 trainset = [
-    Example(input="Question: What is the color of the sky?", answer="blue").with_inputs("input"),
-    Example(input="Question: What does the fox say?", answer="Ring-ding-ding-ding-dingeringeding!").with_inputs(
+    Example(input="Question: What is the color of the sky?", output="blue").with_inputs("input"),
+    Example(input="Question: What does the fox say?", output="Ring-ding-ding-ding-dingeringeding!").with_inputs(
         "input"
     ),
 ]
@@ -50,7 +50,7 @@ async def test_signature_optimizer_optimization_process():
         )
     )
 
-    student = SimpleModule("input -> answer")
+    student = SimpleModule("input -> output")
 
     # Assuming the compile method of COPRO requires a student module, a development set, and evaluation kwargs
     optimized_student = await optimizer.compile(
