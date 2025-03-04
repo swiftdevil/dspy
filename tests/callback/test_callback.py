@@ -23,34 +23,34 @@ class MyCallback(BaseCallback):
     def __init__(self):
         self.calls = []
 
-    async def on_module_start(self, call_id, instance, inputs):
+    async def on_module_start(self, call_id, instance, settings, inputs):
         self.calls.append({"handler": "on_module_start", "instance": instance, "inputs": inputs})
 
-    async def on_module_end(self, call_id, outputs, exception):
+    async def on_module_end(self, call_id, settings, outputs, exception):
         self.calls.append({"handler": "on_module_end", "outputs": outputs, "exception": exception})
 
-    async def on_lm_start(self, call_id, instance, inputs):
+    async def on_lm_start(self, call_id, instance, settings, inputs):
         self.calls.append({"handler": "on_lm_start", "instance": instance, "inputs": inputs})
 
-    async def on_lm_end(self, call_id, outputs, exception):
+    async def on_lm_end(self, call_id, settings, outputs, exception):
         self.calls.append({"handler": "on_lm_end", "outputs": outputs, "exception": exception})
 
-    async def on_adapter_format_start(self, call_id, instance, inputs):
+    async def on_adapter_format_start(self, call_id, instance, settings, inputs):
         self.calls.append({"handler": "on_adapter_format_start", "instance": instance, "inputs": inputs})
 
-    async def on_adapter_format_end(self, call_id, outputs, exception):
+    async def on_adapter_format_end(self, call_id, settings, outputs, exception):
         self.calls.append({"handler": "on_adapter_format_end", "outputs": outputs, "exception": exception})
 
-    async def on_adapter_parse_start(self, call_id, instance, inputs):
+    async def on_adapter_parse_start(self, call_id, instance, settings, inputs):
         self.calls.append({"handler": "on_adapter_parse_start", "instance": instance, "inputs": inputs})
 
-    async def on_adapter_parse_end(self, call_id, outputs, exception):
+    async def on_adapter_parse_end(self, call_id, settings, outputs, exception):
         self.calls.append({"handler": "on_adapter_parse_end", "outputs": outputs, "exception": exception})
 
-    async def on_tool_start(self, call_id, instance, inputs):
+    async def on_tool_start(self, call_id, instance, settings, inputs):
         self.calls.append({"handler": "on_tool_start", "instance": instance, "inputs": inputs})
 
-    async def on_tool_end(self, call_id, outputs, exception):
+    async def on_tool_end(self, call_id, settings, outputs, exception):
         self.calls.append({"handler": "on_tool_end", "outputs": outputs, "exception": exception})
 
 
@@ -74,7 +74,8 @@ async def test_callback_injection(args, kwargs):
     dspy.settings.configure(callbacks=[callback])
 
     target = Target()
-    result = await target.forward(*args, **kwargs)
+    with dspy.context() as settings:
+        result = await target.forward(settings, *args, **kwargs)
 
     assert result == 6
 
@@ -95,7 +96,9 @@ async def test_callback_injection_local():
     callback = MyCallback()
 
     target_1 = Target(callbacks=[callback])
-    result = await target_1.forward(1, "2", 3.0)
+    
+    with dspy.context() as settings:
+        result = await target_1.forward(settings, 1, "2", 3.0)
 
     assert result == 6
 
@@ -108,7 +111,9 @@ async def test_callback_injection_local():
     callback.calls = []
 
     target_2 = Target()
-    result = await target_2.forward(1, "2", 3.0)
+
+    with dspy.context() as settings:
+        result = await target_2.forward(settings, 1, "2", 3.0)
 
     # Other instance should not trigger the callback
     assert not callback.calls
@@ -122,12 +127,13 @@ async def test_callback_error_handling():
             raise ValueError("Error")
 
     callback = MyCallback()
-    dspy.settings.configure(callbacks=[callback])
 
     target = Target()
 
     with pytest.raises(ValueError, match="Error"):
-        await target.forward(1, "2", 3.0)
+        with dspy.context() as settings:
+            settings.configure(callbacks=[callback])
+            await target.forward(settings, 1, "2", 3.0)
 
     assert len(callback.calls) == 2
     assert callback.calls[0]["handler"] == "on_module_start"
@@ -144,10 +150,11 @@ async def test_multiple_callbacks():
 
     callback_1 = MyCallback()
     callback_2 = MyCallback()
-    dspy.settings.configure(callbacks=[callback_1, callback_2])
 
     target = Target()
-    result = await target.forward(1, "2", 3.0)
+    with dspy.context() as settings:
+        settings.configure(callbacks=[callback_1, callback_2])
+        result = await target.forward(settings, 1, "2", 3.0)
 
     assert result == 6
 
@@ -157,13 +164,17 @@ async def test_multiple_callbacks():
 
 async def test_callback_complex_module():
     callback = MyCallback()
-    dspy.settings.configure(
-        lm=DummyLM({"How are you?": {"answer": "test output", "reasoning": "No more responses"}}),
-        callbacks=[callback],
-    )
 
     cot = dspy.ChainOfThought("question -> answer", n=3)
-    result = await cot(question="How are you?")
+    
+    with dspy.context() as settings:
+        settings.configure(
+            lm=DummyLM({"How are you?": {"answer": "test output", "reasoning": "No more responses"}}),
+            callbacks=[callback],
+        )
+        
+        result = await cot(settings=settings, question="How are you?")
+    
     assert result["answer"] == "test output"
     assert result["reasoning"] == "No more responses"
 
@@ -189,13 +200,12 @@ async def test_callback_complex_module():
 
 async def test_tool_calls():
     callback = MyCallback()
-    dspy.settings.configure(callbacks=[callback])
 
-    async def tool_1(query: str) -> str:
+    async def tool_1(settings, query: str) -> str:
         """A dummy tool function."""
         return "result 1"
 
-    async def tool_2(query: str) -> str:
+    async def tool_2(settings, query: str) -> str:
         """Another dummy tool function."""
         return "result 2"
 
@@ -204,11 +214,14 @@ async def test_tool_calls():
             self.tools = [dspy.Tool(tool_1), dspy.Tool(tool_2)]
 
         async def forward(self, settings, query: str) -> str:
-            query = await self.tools[0](query)
-            return await self.tools[1](query)
+            query = await self.tools[0](settings, query)
+            return await self.tools[1](settings, query)
 
     module = MyModule()
-    result = await module("query")
+    
+    with dspy.context() as settings:
+        settings.configure(callbacks=[callback])
+        result = await module(settings, "query")
 
     assert result == "result 2"
     assert len(callback.calls) == 6
@@ -229,7 +242,7 @@ async def test_active_id():
             self.parent_call_ids = []
             self.call_ids = []
 
-        async def on_module_start(self, call_id, instance, inputs):
+        async def on_module_start(self, call_id, instance, settings, inputs):
             parent_call_id = ACTIVE_CALL_ID.get()
             self.parent_call_ids.append(parent_call_id)
             self.call_ids.append(call_id)
@@ -240,18 +253,20 @@ async def test_active_id():
             self.child_2 = Child()
 
         async def forward(self, settings):
-            await self.child_1()
-            await self.child_2()
+            await self.child_1(settings)
+            await self.child_2(settings)
 
     class Child(dspy.Module):
         async def forward(self, settings):
             pass
 
     callback = CustomCallback()
-    dspy.settings.configure(callbacks=[callback])
 
     parent = Parent()
-    await parent()
+    
+    with dspy.context() as settings:
+        settings.configure(callbacks=[callback])
+        await parent(settings)
 
     assert len(callback.call_ids) == 3
     # All three calls should have different call ids

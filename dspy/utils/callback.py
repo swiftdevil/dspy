@@ -6,6 +6,7 @@ from contextvars import ContextVar
 from typing import Any, Callable, Dict, Optional
 
 import dspy
+from dspy.dsp.utils import Settings
 
 ACTIVE_CALL_ID = ContextVar("active_call_id", default=None)
 
@@ -66,11 +67,13 @@ class BaseCallback:
         self,
         call_id: str,
         instance: Any,
+        settings: Settings,
         inputs: Dict[str, Any],
     ):
         """A handler triggered when forward() method of a module (subclass of dspy.Module) is called.
 
         Args:
+            settings: The dspy settings context to use for the call
             call_id: A unique identifier for the call. Can be used to connect start/end handlers.
             instance: The Module instance.
             inputs: The inputs to the module's forward() method. Each arguments is stored as
@@ -81,12 +84,14 @@ class BaseCallback:
     async def on_module_end(
         self,
         call_id: str,
+        settings: Settings,
         outputs: Optional[Any],
         exception: Optional[Exception] = None,
     ):
         """A handler triggered after forward() method of a module (subclass of dspy.Module) is executed.
 
         Args:
+            settings: The dspy settings context to use for the call
             call_id: A unique identifier for the call. Can be used to connect start/end handlers.
             outputs: The outputs of the module's forward() method. If the method is interrupted by
                 an exception, this will be None.
@@ -98,6 +103,7 @@ class BaseCallback:
         self,
         call_id: str,
         instance: Any,
+        settings: Settings,
         inputs: Dict[str, Any],
     ):
         """A handler triggered when __call__ method of dspy.LM instance is called.
@@ -105,6 +111,7 @@ class BaseCallback:
         Args:
             call_id: A unique identifier for the call. Can be used to connect start/end handlers.
             instance: The LM instance.
+            settings: The dspy settings context to use for the call
             inputs: The inputs to the LM's __call__ method. Each arguments is stored as
                 a key-value pair in a dictionary.
         """
@@ -113,6 +120,7 @@ class BaseCallback:
     async def on_lm_end(
         self,
         call_id: str,
+        settings: Settings,
         outputs: Optional[Dict[str, Any]],
         exception: Optional[Exception] = None,
     ):
@@ -120,6 +128,7 @@ class BaseCallback:
 
         Args:
             call_id: A unique identifier for the call. Can be used to connect start/end handlers.
+            settings: The dspy settings context to use for the call
             outputs: The outputs of the LM's __call__ method. If the method is interrupted by
                 an exception, this will be None.
             exception: If an exception is raised during the execution, it will be stored here.
@@ -130,6 +139,7 @@ class BaseCallback:
         self,
         call_id: str,
         instance: Any,
+        settings: Settings,
         inputs: Dict[str, Any],
     ):
         """A handler triggered when format() method of an adapter (subclass of dspy.Adapter) is called.
@@ -137,6 +147,7 @@ class BaseCallback:
         Args:
             call_id: A unique identifier for the call. Can be used to connect start/end handlers.
             instance: The Adapter instance.
+            settings: The dspy settings context to use for the call
             inputs: The inputs to the Adapter's format() method. Each arguments is stored as
                 a key-value pair in a dictionary.
         """
@@ -145,6 +156,7 @@ class BaseCallback:
     async def on_adapter_format_end(
         self,
         call_id: str,
+        settings: Settings,
         outputs: Optional[Dict[str, Any]],
         exception: Optional[Exception] = None,
     ):
@@ -152,6 +164,7 @@ class BaseCallback:
 
         Args:
             call_id: A unique identifier for the call. Can be used to connect start/end handlers.
+            settings: The dspy settings context to use for the call
             outputs: The outputs of the Adapter's format() method. If the method is interrupted
                 by an exception, this will be None.
             exception: If an exception is raised during the execution, it will be stored here.
@@ -162,6 +175,7 @@ class BaseCallback:
         self,
         call_id: str,
         instance: Any,
+        settings: Settings,
         inputs: Dict[str, Any],
     ):
         """A handler triggered when parse() method of an adapter (subclass of dspy.Adapter) is called.
@@ -169,6 +183,7 @@ class BaseCallback:
         Args:
             call_id: A unique identifier for the call. Can be used to connect start/end handlers.
             instance: The Adapter instance.
+            settings: The dspy settings context to use for the call
             inputs: The inputs to the Adapter's parse() method. Each arguments is stored as
                 a key-value pair in a dictionary.
         """
@@ -177,6 +192,7 @@ class BaseCallback:
     async def on_adapter_parse_end(
         self,
         call_id: str,
+        settings: Settings,
         outputs: Optional[Dict[str, Any]],
         exception: Optional[Exception] = None,
     ):
@@ -184,6 +200,7 @@ class BaseCallback:
 
         Args:
             call_id: A unique identifier for the call. Can be used to connect start/end handlers.
+            settings: The dspy settings context to use for the call
             outputs: The outputs of the Adapter's parse() method. If the method is interrupted
                 by an exception, this will be None.
             exception: If an exception is raised during the execution, it will be stored here.
@@ -194,6 +211,7 @@ class BaseCallback:
         self,
         call_id: str,
         instance: Any,
+        settings: Settings,
         inputs: Dict[str, Any],
     ):
         """A handler triggered when a tool is called.
@@ -201,6 +219,7 @@ class BaseCallback:
         Args:
             call_id: A unique identifier for the call. Can be used to connect start/end handlers.
             instance: The Tool instance.
+            settings: The dspy settings context to use for the call
             inputs: The inputs to the Tool's __call__ method. Each arguments is stored as
                 a key-value pair in a dictionary.
         """
@@ -209,6 +228,7 @@ class BaseCallback:
     async def on_tool_end(
         self,
         call_id: str,
+        settings: Settings,
         outputs: Optional[Dict[str, Any]],
         exception: Optional[Exception] = None,
     ):
@@ -216,6 +236,7 @@ class BaseCallback:
 
         Args:
             call_id: A unique identifier for the call. Can be used to connect start/end handlers.
+            settings: The dspy settings context to use for the call
             outputs: The outputs of the Tool's __call__ method. If the method is interrupted by
                 an exception, this will be None.
             exception: If an exception is raised during the execution, it will be stored here.
@@ -225,24 +246,24 @@ class BaseCallback:
 
 def with_callbacks(fn):
     @functools.wraps(fn)
-    async def wrapper(instance, *args, **kwargs):
-        settings = args[0]
+    async def wrapper(instance, settings, *args, **kwargs):
         # Combine global and local (per-instance) callbacks.
         callbacks = settings.get("callbacks", []) + getattr(instance, "callbacks", [])
 
         # If no callbacks are provided, just call the function
         if not callbacks:
-            return await fn(instance, *args, **kwargs)
+            return await fn(instance, settings, *args, **kwargs)
 
         # Generate call ID as the unique identifier for the call, this is useful for instrumentation.
         call_id = uuid.uuid4().hex
 
-        inputs = inspect.getcallargs(fn, instance, *args, **kwargs)
+        inputs = inspect.getcallargs(fn, instance, settings, *args, **kwargs)
         inputs.pop("self")  # Not logging self as input
+        inputs.pop("settings")
 
         for callback in callbacks:
             try:
-                await _get_on_start_handler(callback, instance, fn)(call_id=call_id, instance=instance, inputs=inputs)
+                await _get_on_start_handler(callback, instance, fn)(call_id=call_id, instance=instance, settings=settings, inputs=inputs)
 
             except Exception as e:
                 logger.warning(f"Error when calling callback {callback}: {e}")
@@ -253,7 +274,7 @@ def with_callbacks(fn):
             parent_call_id = ACTIVE_CALL_ID.get()
             # Active ID must be set right before the function is called, not before calling the callbacks.
             ACTIVE_CALL_ID.set(call_id)
-            results = await fn(instance, *args, **kwargs)
+            results = await fn(instance, settings, *args, **kwargs)
             return results
         except Exception as e:
             exception = e
@@ -265,6 +286,7 @@ def with_callbacks(fn):
                 try:
                     await _get_on_end_handler(callback, instance, fn)(
                         call_id=call_id,
+                        settings=settings,
                         outputs=results,
                         exception=exception,
                     )
