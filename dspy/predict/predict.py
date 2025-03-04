@@ -63,10 +63,10 @@ class Predict(Module, Parameter):
         return self
 
     @with_callbacks
-    async def __call__(self, settings, **kwargs):
-        return await self.forward(settings, **kwargs)
+    async def __call__(self, settings, *args, **kwargs):
+        return await self.forward(settings, *args, **kwargs)
 
-    async def forward(self, settings, **kwargs):
+    async def forward(self, settings, *args, **kwargs):
         import dspy
 
         # Extract the three privileged keyword arguments.

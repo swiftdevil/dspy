@@ -37,7 +37,7 @@ class ReAct(Module):
             ]
         )
 
-        async def finish_func(settings, **kwargs):
+        async def finish_func(settings, *args, **kwargs):
             return "Completed."
 
         tools["finish"] = Tool(
@@ -75,10 +75,10 @@ class ReAct(Module):
         trajectory_signature = dspy.Signature(f"{', '.join(trajectory.keys())} -> x")
         return adapter.format_fields(trajectory_signature, trajectory, role="user")
 
-    async def forward(self, settings, **input_args):
+    async def forward(self, settings, *args, **input_args):
         trajectory = {}
         for idx in range(self.max_iters):
-            pred = await self._call_with_potential_trajectory_truncation(settings, self.react, trajectory, **input_args)
+            pred = await self._call_with_potential_trajectory_truncation(settings, self.react, trajectory, *args, **input_args)
 
             trajectory[f"thought_{idx}"] = pred.next_thought
             trajectory[f"tool_name_{idx}"] = pred.next_tool_name
@@ -98,7 +98,7 @@ class ReAct(Module):
                         elif k == 'settings' or v == Settings.__name__:
                             continue
                     parsed_tool_args[k] = v
-                trajectory[f"observation_{idx}"] = await self.tools[pred.next_tool_name](settings, **parsed_tool_args)
+                trajectory[f"observation_{idx}"] = await self.tools[pred.next_tool_name](settings, *args, **parsed_tool_args)
             except Exception as e:
                 trajectory[f"observation_{idx}"] = f"Failed to execute: {e}"
 
@@ -108,11 +108,12 @@ class ReAct(Module):
         extract = await self._call_with_potential_trajectory_truncation(settings, self.extract, trajectory, **input_args)
         return dspy.Prediction(trajectory=trajectory, **extract)
 
-    async def _call_with_potential_trajectory_truncation(self, settings, module, trajectory, **input_args):
+    async def _call_with_potential_trajectory_truncation(self, settings, module, trajectory, *args, **input_args):
         while True:
             try:
                 return await module(
                     settings,
+                    *args,
                     **input_args,
                     trajectory=self._format_trajectory(settings, trajectory),
                 )
