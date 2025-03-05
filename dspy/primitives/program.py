@@ -1,5 +1,8 @@
+from abc import abstractmethod
+
 import magicattr
 
+from dspy.dsp.utils import Settings
 from dspy.predict.parallel import Parallel
 from dspy.primitives.module import BaseModule
 from dspy.utils.callback import with_callbacks
@@ -94,6 +97,7 @@ class Module(BaseModule, metaclass=ProgramMeta):
         """
         Processes a list of dspy.Example instances in parallel using the Parallel module.
 
+        :param settings: dspy Settings object
         :param examples: List of dspy.Example instances to process.
         :param batch_size: Number of threads to use for parallel processing.
         :param max_errors: Maximum number of errors allowed before stopping execution.
@@ -118,7 +122,7 @@ class Module(BaseModule, metaclass=ProgramMeta):
             results, failed_examples, exceptions = await parallel_executor.forward(settings, exec_pairs)
             return results, failed_examples, exceptions
         else:
-            results = await parallel_executor.forward(exec_pairs)
+            results = await parallel_executor.forward(settings, exec_pairs)
             return results
 
 

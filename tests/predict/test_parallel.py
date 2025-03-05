@@ -29,8 +29,7 @@ async def test_parallel_module():
                 (self.predictor, input),
             ])
 
-    with dspy.context as settings:
-        settings.configure(lm=lm)
+    with dspy.context(lm=lm) as settings:
         output = await MyModule()(settings, dspy.Example(input="test input").with_inputs("input"))
 
     expected_outputs = {f"test output {i}" for i in range(1, 6)}
@@ -62,11 +61,11 @@ async def test_batch_module():
             self.parallel = dspy.Parallel(num_threads=2)
 
         async def forward(self, settings, input):
-            dspy.settings.configure(lm=lm)
-            res1 = await self.predictor.batch([input] * 5)
+            with settings.context(lm=lm) as settings_res1:
+                res1 = await self.predictor.batch(settings_res1, [input] * 5)
 
-            dspy.settings.configure(lm=res_lm)
-            res2 = await self.predictor2.batch([input] * 5)
+            with settings.context(lm=res_lm) as settings_res2:
+                res2 = await self.predictor2.batch(settings_res2, [input] * 5)
 
             return (res1, res2)
 

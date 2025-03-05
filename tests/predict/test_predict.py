@@ -459,14 +459,14 @@ def test_load_state_chaining():
 
 
 @pytest.mark.parametrize("adapter_type", ["chat", "json"])
-def test_call_predict_with_chat_history(adapter_type):
+async def test_call_predict_with_chat_history(adapter_type):
     class SpyLM(dspy.LM):
         def __init__(self, *args, return_json=False, **kwargs):
             super().__init__(*args, **kwargs)
             self.calls = []
             self.return_json = return_json
 
-        def __call__(self, prompt=None, messages=None, **kwargs):
+        async def __call__(self, settings, prompt=None, messages=None, **kwargs):
             self.calls.append({"prompt": prompt, "messages": messages, "kwargs": kwargs})
             if self.return_json:
                 return ["{'answer':'100%'}"]
@@ -486,7 +486,8 @@ def test_call_predict_with_chat_history(adapter_type):
         lm = SpyLM("dummy_model", return_json=True)
         dspy.settings.configure(adapter=dspy.JSONAdapter(), lm=lm)
 
-    program(
+    await program(
+        settings=dspy.settings,
         question="are you sure that's correct?",
         history=dspy.History(messages=[{"question": "what's the capital of france?", "answer": "paris"}]),
     )
