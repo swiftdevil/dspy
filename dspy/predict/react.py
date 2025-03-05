@@ -95,7 +95,7 @@ class ReAct(Module):
                         ):
                             parsed_tool_args[k] = arg_type.model_validate(v)
                             continue
-                        elif k == 'settings' or v == Settings.__name__:
+                        elif get_origin(arg_type) == Settings:
                             continue
                     parsed_tool_args[k] = v
                 trajectory[f"observation_{idx}"] = await self.tools[pred.next_tool_name](settings, *args, **parsed_tool_args)

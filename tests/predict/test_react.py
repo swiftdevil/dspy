@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pydantic import BaseModel
 
 import dspy
+from dspy.dsp.utils import Settings
 from dspy.predict import react
 from dspy.utils.dummies import DummyLM, dummy_rm
 import litellm
@@ -128,7 +129,7 @@ import litellm
 
 
 def test_tool_from_function():
-    async def foo(a: int, b: int) -> int:
+    async def foo(settings: Settings, a: int, b: int) -> int:
         """Add two numbers."""
         return a + b
 
@@ -143,7 +144,7 @@ def test_tool_from_class():
         def __init__(self, user_id: str):
             self.user_id = user_id
 
-        async def foo(self, a: int, b: int) -> int:
+        async def foo(self, settings: Settings, a: int, b: int) -> int:
             """Add two numbers."""
             return a + b
 
@@ -159,7 +160,7 @@ async def test_tool_calling_with_pydantic_args():
         date: str
         participants: dict[str, str]
 
-    async def write_invitation_letter(participant_name: str, event_info: CalendarEvent):
+    async def write_invitation_letter(settings: Settings, participant_name: str, event_info: CalendarEvent):
         if participant_name not in event_info.participants:
             return None
         return f"It's my honor to invite {participant_name} to event {event_info.name} on {event_info.date}"
@@ -234,7 +235,7 @@ async def test_tool_calling_with_pydantic_args():
 
 
 async def test_tool_calling_without_typehint():
-    async def foo(a, b):
+    async def foo(settings, a, b):
         """Add two numbers."""
         return a + b
 
@@ -268,7 +269,7 @@ async def test_tool_calling_without_typehint():
 
 async def test_trajectory_truncation():
     # Create a simple tool for testing
-    def echo(text: str) -> str:
+    def echo(settings, text: str) -> str:
         return f"Echoed: {text}"
 
     # Create ReAct instance with our echo tool
@@ -277,7 +278,7 @@ async def test_trajectory_truncation():
     # Mock react.react to simulate multiple tool calls
     call_count = 0
 
-    def mock_react(**kwargs):
+    async def mock_react(settings, **kwargs):
         nonlocal call_count
         call_count += 1
 
@@ -294,9 +295,12 @@ async def test_trajectory_truncation():
         else:
             # The 4th call finishes
             return dspy.Prediction(next_thought="Final thought", next_tool_name="finish", next_tool_args={})
+    
+    async def extract(settings, **kwargs):
+        return dspy.Prediction(output_text="Final output")
 
     react.react = mock_react
-    react.extract = lambda **kwargs: dspy.Prediction(output_text="Final output")
+    react.extract = extract
 
     # Call forward and get the result
     with dspy.context() as settings:

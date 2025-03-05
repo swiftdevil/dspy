@@ -104,7 +104,7 @@ class Tool:
                 v_json_schema = self._resolve_pydantic_schema(v)
                 args[k] = v_json_schema
             elif origin == Settings:
-                args[k] = v.__name__
+                continue
             else:
                 args[k] = TypeAdapter(v).json_schema() or "Any"
             if arg_desc and k in arg_desc:
