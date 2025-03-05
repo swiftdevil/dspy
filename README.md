@@ -48,10 +48,10 @@ DSPy stands for Declarative Self-improving Python. Instead of brittle prompts, y
 pip install dspy-async
 ```
 
-To install the very latest from `main`:
+To install the very latest from `full_async`:
 
 ```bash
-pip install git+https://github.com/swiftdevil/dspy.git
+pip install git+https://github.com/swiftdevil/dspy.git@full_async
 ````
 
 
