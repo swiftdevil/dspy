@@ -247,6 +247,7 @@ class BaseCallback:
         self,
         call_id: str,
         instance: Any,
+        settings: Settings,
         inputs: Dict[str, Any],
     ):
         """A handler triggered when evaluation is started.
@@ -254,6 +255,7 @@ class BaseCallback:
         Args:
             call_id: A unique identifier for the call. Can be used to connect start/end handlers.
             instance: The Evaluate instance.
+            settings: The dspy settings object
             inputs: The inputs to the Evaluate's __call__ method. Each arguments is stored as
                 a key-value pair in a dictionary.
         """
@@ -262,6 +264,7 @@ class BaseCallback:
     def on_evaluate_end(
         self,
         call_id: str,
+        settings: Settings,
         outputs: Optional[Dict[str, Any]],
         exception: Optional[Exception] = None,
     ):
@@ -269,6 +272,7 @@ class BaseCallback:
 
         Args:
             call_id: A unique identifier for the call. Can be used to connect start/end handlers.
+            settings: The dspy settings object
             outputs: The outputs of the Evaluate's __call__ method. If the method is interrupted by
                 an exception, this will be None.
             exception: If an exception is raised during the execution, it will be stored here.

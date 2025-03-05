@@ -1,5 +1,6 @@
 import signal
 import threading
+from typing import Callable
 from unittest.mock import patch
 
 import pytest
@@ -85,6 +86,13 @@ async def test_evaluate_call_bad():
     assert score == 0.0
 
 
+def get_predict_def(sig: str, key) -> Callable:
+    async def x(settings, text: str):
+        result = await Predict(sig)(settings, text=text)
+        return result[key]
+    
+    return x
+
 @pytest.mark.parametrize(
     "program_with_example",
     [
@@ -92,17 +100,17 @@ async def test_evaluate_call_bad():
         # Create programs that do not return dictionary-like objects because Evaluate()
         # has failed for such cases in the past
         (
-            lambda text: Predict("text: str -> entities: List[str]")(text=text).entities,
+            get_predict_def("text: str -> entities: List[str]", "entities"),
             dspy.Example(text="United States", entities=["United States"]).with_inputs("text"),
         ),
         (
-            lambda text: Predict("text: str -> entities: List[Dict[str, str]]")(text=text).entities,
+            get_predict_def("text: str -> entities: List[Dict[str, str]]", "entities"),
             dspy.Example(text="United States", entities=[{"name": "United States", "type": "location"}]).with_inputs(
                 "text"
             ),
         ),
         (
-            lambda text: Predict("text: str -> first_word: Tuple[str, int]")(text=text).words,
+            get_predict_def("text: str -> first_word: Tuple[str, int]", "first_word"),
             dspy.Example(text="United States", first_word=("United", 6)).with_inputs("text"),
         ),
     ],
@@ -121,10 +129,13 @@ async def test_evaluate_display_table(program_with_example, display_table, is_in
             }
         )
     )
+    
+    async def metric(settings, example, pred, **kwargs):
+        return example == pred
 
     ev = Evaluate(
         devset=[example],
-        metric=lambda example, pred, **kwargs: example == pred,
+        metric=metric,
         display_table=display_table,
     )
     assert ev.display_table == display_table
@@ -132,7 +143,7 @@ async def test_evaluate_display_table(program_with_example, display_table, is_in
     with patch(
         "dspy.evaluate.evaluate.is_in_ipython_notebook_environment", return_value=is_in_ipython_notebook_environment
     ):
-        await ev(program)
+        await ev(dspy.settings, program)
         out, _ = capfd.readouterr()
         if not is_in_ipython_notebook_environment and display_table:
             # In console environments where IPython is not available, the table should be printed
@@ -180,7 +191,7 @@ async def test_evaluate_callback():
     )
     devset = [new_example("What is 1+1?", "2"), new_example("What is 2+2?", "4")]
     program = Predict("question -> answer")
-    answer = await program(question="What is 1+1?")
+    answer = await program(dspy.settings, question="What is 1+1?")
     assert answer.answer == "2"
     ev = Evaluate(
         devset=devset,
