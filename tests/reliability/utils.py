@@ -12,7 +12,7 @@ import dspy
 JUDGE_MODEL_NAME = "judge"
 
 
-def assert_program_output_correct(
+async def assert_program_output_correct(
     program_input: Any,
     program_output: Any,
     grading_guidelines: Union[str, List[str]],
@@ -32,15 +32,16 @@ def assert_program_output_correct(
 
     with judge_dspy_configuration():
         for guideline_entry in grading_guidelines:
-            judge_response = _get_judge_program()(
+            judge_response = await _get_judge_program()(
                 program_input=str(program_input),
                 program_output=str(program_output),
                 guidelines=guideline_entry,
-            ).judge_response
+            )
+            judge_response = judge_response.judge_response
             assert judge_response.correct, f"Output: {program_output}. Reason incorrect: {judge_response.justification}"
 
 
-def known_failing_models(models: List[str]):
+async def known_failing_models(models: List[str]):
     """
     Decorator to allow specific test cases to fail for certain models. This is useful when a
     model is known to be unable to perform a specific task (e.g. output formatting with complex
@@ -54,8 +55,8 @@ def known_failing_models(models: List[str]):
         test_func._known_failing_models = models
 
         @wraps(test_func)
-        def wrapper(*args, **kwargs):
-            return test_func(*args, **kwargs)
+        async def wrapper(*args, **kwargs):
+            return await test_func(*args, **kwargs)
 
         return wrapper
 

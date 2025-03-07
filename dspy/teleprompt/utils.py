@@ -42,16 +42,16 @@ def create_minibatch(trainset, batch_size=50, rng=None):
     return minibatch
 
 
-def eval_candidate_program(batch_size, trainset, candidate_program, evaluate, rng=None, return_all_scores=False):
+async def eval_candidate_program(batch_size, trainset, candidate_program, evaluate, rng=None, return_all_scores=False):
     """Evaluate a candidate program on the trainset, using the specified batch size."""
 
     try:
         # Evaluate on the full trainset
         if batch_size >= len(trainset):
-            return evaluate(candidate_program, devset=trainset, return_all_scores=return_all_scores)
+            return await evaluate(candidate_program, devset=trainset, return_all_scores=return_all_scores)
         # Or evaluate on a minibatch
         else:
-            return evaluate(
+            return await evaluate(
                 candidate_program,
                 devset=create_minibatch(trainset, batch_size, rng),
                 return_all_scores=return_all_scores

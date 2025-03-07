@@ -55,7 +55,7 @@ class BootstrapFinetune(FinetuneTeleprompter):
         self.exclude_demos = exclude_demos
         self.num_threads = num_threads
 
-    def compile(
+    async def compile(
         self, student: Program, trainset: List[Example], teacher: Optional[Union[Program, List[Program]]] = None
     ) -> Program:
         # TODO: Print statements can be converted to logger.info if we ensure
@@ -81,7 +81,7 @@ class BootstrapFinetune(FinetuneTeleprompter):
             data_pred_ind = None if self.multitask else pred_ind
             training_key = (pred.lm, data_pred_ind)
             if training_key not in key_to_data:
-                train_data, data_format = self._prepare_finetune_data(
+                train_data, data_format = await self._prepare_finetune_data(
                     trace_data=trace_data, lm=pred.lm, pred_ind=data_pred_ind
                 )
                 logger.info(f"Using {len(train_data)} data points for fine-tuning the model: {pred.lm.model}")
@@ -152,7 +152,7 @@ class BootstrapFinetune(FinetuneTeleprompter):
 
         return key_to_lm
 
-    def _prepare_finetune_data(self, trace_data: List[Dict[str, Any]], lm: LM, pred_ind: Optional[int] = None):
+    async def _prepare_finetune_data(self, trace_data: List[Dict[str, Any]], lm: LM, pred_ind: Optional[int] = None):
         # TODO(nit) Log dataset details/size; make logs nicer
         if self.metric:
             logger.info(f"Collected data for {len(trace_data)} examples")
@@ -166,7 +166,7 @@ class BootstrapFinetune(FinetuneTeleprompter):
             for pred_ind, _ in enumerate(item["trace"]):
                 include_data = pred_ind is None or pred_ind == pred_ind
                 if include_data:
-                    call_data = build_call_data_from_trace(
+                    call_data =await  build_call_data_from_trace(
                         trace=item["trace"], pred_ind=pred_ind, adapter=adapter, exclude_demos=self.exclude_demos
                     )
                     data.append(call_data)
@@ -178,7 +178,7 @@ class BootstrapFinetune(FinetuneTeleprompter):
         return data, data_format
 
 
-def build_call_data_from_trace(
+async def build_call_data_from_trace(
     trace: List[Dict],
     pred_ind: int,
     adapter: Optional[Adapter] = None,
@@ -194,7 +194,7 @@ def build_call_data_from_trace(
         adapter = pred.lm.infer_adapter()
 
     demos = [] if exclude_demos else pred.demos
-    call_data = adapter.format_finetune_data(
+    call_data = await adapter.format_finetune_data(
         signature=pred.signature,
         demos=demos,
         inputs=inputs,
