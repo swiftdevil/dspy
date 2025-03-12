@@ -265,7 +265,7 @@ class BaseCallback:
         self,
         call_id: str,
         settings: Settings,
-        outputs: Optional[Dict[str, Any]],
+        outputs: Optional[Any],
         exception: Optional[Exception] = None,
     ):
         """A handler triggered after evaluation is executed.
