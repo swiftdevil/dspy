@@ -8,7 +8,7 @@
 
 **Documentation:** [DSPy Docs](https://dspy.ai/)
 
-[![PyPI Downloads](https://static.pepy.tech/badge/dspy/month)](https://pepy.tech/projects/dspy)
+[![PyPI Downloads](https://static.pepy.tech/badge/dspy-async)](https://pepy.tech/projects/dspy-async)
 
 
 ## ASYNC DSPY
