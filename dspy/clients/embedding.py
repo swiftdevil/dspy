@@ -1,6 +1,8 @@
 import litellm
 import numpy as np
 
+import dspy
+
 
 class Embedder:
     """DSPy embedding class.
@@ -78,7 +80,7 @@ class Embedder:
         self.caching = caching
         self.default_kwargs = kwargs
 
-    def __call__(self, inputs, batch_size=None, caching=None, **kwargs):
+    async def __call__(self, settings, inputs, batch_size=None, caching=None, **kwargs):
         """Compute embeddings for the given inputs.
 
         Args:
@@ -116,12 +118,12 @@ class Embedder:
 
         for batch_inputs in chunk(inputs, batch_size):
             if isinstance(self.model, str):
-                embedding_response = litellm.embedding(
+                embedding_response = await litellm.aembedding(
                     model=self.model, input=batch_inputs, caching=caching, **merged_kwargs
                 )
                 batch_embeddings = [data["embedding"] for data in embedding_response.data]
             elif callable(self.model):
-                batch_embeddings = self.model(batch_inputs, **merged_kwargs)
+                batch_embeddings = await self.model(dspy.settings, batch_inputs, **merged_kwargs)
             else:
                 raise ValueError(
                     f"`model` in `dspy.Embedder` must be a string or a callable, but got {type(self.model)}."

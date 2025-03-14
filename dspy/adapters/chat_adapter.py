@@ -16,6 +16,7 @@ from dspy.adapters.types.history import History
 from dspy.adapters.types.image import try_expand_image_tags
 from dspy.adapters.utils import format_field_value, get_annotation_name, parse_value
 from dspy.clients.lm import LM
+from dspy.dsp.utils import Settings
 from dspy.signatures.field import OutputField
 from dspy.signatures.signature import Signature, SignatureMeta
 from dspy.signatures.utils import get_dspy_field_type
@@ -37,17 +38,17 @@ class ChatAdapter(Adapter):
     def __init__(self, callbacks: Optional[list[BaseCallback]] = None):
         super().__init__(callbacks)
 
-    def __call__(self, lm: LM, lm_kwargs: dict[str, Any], signature: Type[Signature], demos: list[dict[str, Any]], inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    async def __call__(self, settings: Settings, lm: LM, lm_kwargs: dict[str, Any], signature: Type[Signature], demos: list[dict[str, Any]], inputs: dict[str, Any]) -> list[dict[str, Any]]:
         try:
-            return super().__call__(lm, lm_kwargs, signature, demos, inputs)
+            return await super().__call__(settings, lm, lm_kwargs, signature, demos, inputs)
         except Exception as e:
             if isinstance(e, ContextWindowExceededError):
                 # On context window exceeded error, we don't want to retry with a different adapter.
                 raise e
             # fallback to JSONAdapter
-            return JSONAdapter()(lm, lm_kwargs, signature, demos, inputs)
+            return await JSONAdapter()(settings, lm, lm_kwargs, signature, demos, inputs)
     
-    def format(self, signature: Type[Signature], demos: list[dict[str, Any]], inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    async def format(self, settings: Settings, signature: Type[Signature], demos: list[dict[str, Any]], inputs: dict[str, Any]) -> list[dict[str, Any]]:
         messages: list[dict[str, Any]] = []
 
         # Extract demos where some of the output_fields are not filled in.
@@ -80,7 +81,7 @@ class ChatAdapter(Adapter):
         messages = try_expand_image_tags(messages)
         return messages
 
-    def parse(self, signature: Type[Signature], completion: str) -> dict[str, Any]:
+    async def parse(self, settings: Settings, signature: Type[Signature], completion: str) -> dict[str, Any]:
         sections = [(None, [])]
 
         for line in completion.splitlines():
@@ -111,9 +112,9 @@ class ChatAdapter(Adapter):
         return fields
 
     # TODO(PR): Looks ok?
-    def format_finetune_data(self, signature: Type[Signature], demos: list[dict[str, Any]], inputs: dict[str, Any], outputs: dict[str, Any]) -> dict[str, list[Any]]:
+    async def format_finetune_data(self, settings: Settings, signature: Type[Signature], demos: list[dict[str, Any]], inputs: dict[str, Any], outputs: dict[str, Any]) -> dict[str, list[Any]]:
         # Get system + user messages
-        messages = self.format(signature, demos, inputs)
+        messages = await self.format(settings, signature, demos, inputs)
 
         # Add the assistant message
         role = "assistant"

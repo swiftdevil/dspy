@@ -17,6 +17,7 @@ from dspy.adapters.types.image import Image
 from dspy.adapters.types.history import History
 from dspy.adapters.utils import format_field_value, get_annotation_name, parse_value, serialize_for_json
 from dspy.clients.lm import LM
+from dspy.dsp.utils import Settings
 from dspy.signatures.signature import SignatureMeta, Signature
 from dspy.signatures.utils import get_dspy_field_type
 
@@ -31,8 +32,8 @@ class JSONAdapter(Adapter):
     def __init__(self):
         pass
 
-    def __call__(self, lm: LM, lm_kwargs: dict[str, Any], signature: Type[Signature], demos: list[dict[str, Any]], inputs: dict[str, Any]) -> list[dict[str, Any]]:
-        inputs = self.format(signature, demos, inputs)
+    async def __call__(self, settings: Settings, lm: LM, lm_kwargs: dict[str, Any], signature: Type[Signature], demos: list[dict[str, Any]], inputs: dict[str, Any]) -> list[dict[str, Any]]:
+        inputs = await self.format(settings, signature, demos, inputs)
         inputs = dict(prompt=inputs) if isinstance(inputs, str) else dict(messages=inputs)
 
         try:
@@ -41,24 +42,24 @@ class JSONAdapter(Adapter):
             if params and "response_format" in params:
                 try:
                     response_format = _get_structured_outputs_response_format(signature)
-                    outputs = lm(**inputs, **lm_kwargs, response_format=response_format)
+                    outputs = await lm(settings, **inputs, **lm_kwargs, response_format=response_format)
                 except Exception:
                     logger.debug(
                         "Failed to obtain response using signature-based structured outputs"
                         " response format: Falling back to default 'json_object' response format."
                         " Exception: {e}"
                     )
-                    outputs = lm(**inputs, **lm_kwargs, response_format={"type": "json_object"})
+                    outputs = await lm(settings, **inputs, **lm_kwargs, response_format={"type": "json_object"})
             else:
-                outputs = lm(**inputs, **lm_kwargs)
+                outputs = await lm(settings, **inputs, **lm_kwargs)
 
         except litellm.UnsupportedParamsError:
-            outputs = lm(**inputs, **lm_kwargs)
+            outputs = await lm(settings, **inputs, **lm_kwargs)
 
         values = []
 
         for output in outputs:
-            value = self.parse(signature, output)
+            value = await self.parse(settings, signature, output)
             assert set(value.keys()) == set(
                 signature.output_fields.keys()
             ), f"Expected {signature.output_fields.keys()} but got {value.keys()}"
@@ -66,7 +67,7 @@ class JSONAdapter(Adapter):
 
         return values
 
-    def format(self, signature: Type[Signature], demos: list[dict[str, Any]], inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    async def format(self, settings: Settings, signature: Type[Signature], demos: list[dict[str, Any]], inputs: dict[str, Any]) -> list[dict[str, Any]]:
         messages = []
 
         # Extract demos where some of the output_fields are not filled in.
@@ -94,7 +95,7 @@ class JSONAdapter(Adapter):
 
         return messages
 
-    def parse(self, signature: Type[Signature], completion: str) -> dict[str, Any]:
+    async def parse(self, settings: Settings, signature: Type[Signature], completion: str) -> dict[str, Any]:
         fields = json_repair.loads(completion)
         fields = {k: v for k, v in fields.items() if k in signature.output_fields}
 

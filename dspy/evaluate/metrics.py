@@ -25,7 +25,7 @@ def _answer_match(prediction, answers, frac=1.0):
     return F1(prediction, answers) >= frac
 
 
-def answer_exact_match(example, pred, trace=None, frac=1.0):
+async def answer_exact_match(settings, example, pred, trace=None, frac=1.0):
     if isinstance(example.answer, str):
         return _answer_match(pred.answer, [example.answer], frac=frac)
     elif isinstance(example.answer, list):
@@ -33,7 +33,7 @@ def answer_exact_match(example, pred, trace=None, frac=1.0):
     
     raise ValueError(f"Invalid answer type: {type(example.answer)}")
 
-def answer_passage_match(example, pred, trace=None):   
+async def answer_passage_match(settings, example, pred, trace=None):   
     if isinstance(example.answer, str):
         return _passage_match(pred.context, [example.answer])
     elif isinstance(example.answer, list):

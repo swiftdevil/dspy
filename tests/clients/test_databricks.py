@@ -81,7 +81,7 @@ def test_create_finetuning_job():
     assert job.finetuning_run.status.display_name is not None
 
 
-def test_deploy_finetuned_model():
+async def test_deploy_finetuned_model():
     dspy.settings.experimental = True
     model_to_deploy = "main.chenmoney.finetuned_model"
 
@@ -91,4 +91,4 @@ def test_deploy_finetuned_model():
     )
 
     lm = dspy.LM(model="databricks/main_chenmoney_finetuned_model")
-    lm("what is 2 + 2?")
+    await lm(dspy.settings, "what is 2 + 2?")
