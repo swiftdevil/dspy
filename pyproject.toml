@@ -8,8 +8,8 @@ build-backend = "setuptools.build_meta"
 #replace_package_name_marker
 name="dspy-async"
 #replace_package_version_marker
-version="2.6.11"
-description = "DSPy Async"
+version="2.6.12"
+description = "DSPy"
 readme = "README.md"
 authors = [{ name = "Omar Khattab", email = "okhattab@stanford.edu" }, { name = "Will Swift", email = "will@afterdarkstudio.dev"}]
 license = { text = "MIT License" }
