@@ -5,10 +5,11 @@ import pydantic
 import pytest
 
 import dspy
+from tests.special_mocks import get_async_magic_mock
 from tests.test_utils.server import litellm_test_server, read_litellm_test_server_request_logs
 
 
-def test_chat_lms_can_be_queried(litellm_test_server):
+async def test_chat_lms_can_be_queried(litellm_test_server):
     api_base, _ = litellm_test_server
     expected_response = ["Hi!"]
 
@@ -18,7 +19,7 @@ def test_chat_lms_can_be_queried(litellm_test_server):
         api_key="fakekey",
         model_type="chat",
     )
-    assert openai_lm(dspy.settings, "openai query") == expected_response
+    assert await openai_lm(dspy.settings, "openai query") == expected_response
 
     azure_openai_lm = dspy.LM(
         model="azure/dspy-test-model",
@@ -26,7 +27,7 @@ def test_chat_lms_can_be_queried(litellm_test_server):
         api_key="fakekey",
         model_type="chat",
     )
-    assert azure_openai_lm(dspy.settings, "azure openai query") == expected_response
+    assert await azure_openai_lm(dspy.settings, "azure openai query") == expected_response
 
 
 @pytest.mark.parametrize(
@@ -38,7 +39,7 @@ def test_chat_lms_can_be_queried(litellm_test_server):
         (False, False),
     ],
 )
-def test_chat_lms_cache(litellm_test_server, cache, cache_in_memory):
+async def test_chat_lms_cache(litellm_test_server, cache, cache_in_memory):
     api_base, _ = litellm_test_server
     expected_response = ["Hi!"]
 
@@ -50,10 +51,10 @@ def test_chat_lms_cache(litellm_test_server, cache, cache_in_memory):
         cache=cache,
         cache_in_memory=cache_in_memory,
     )
-    assert openai_lm(dspy.settings, "openai query") == expected_response
+    assert await openai_lm(dspy.settings, "openai query") == expected_response
 
 
-def test_text_lms_can_be_queried(litellm_test_server):
+async def test_text_lms_can_be_queried(litellm_test_server):
     api_base, _ = litellm_test_server
     expected_response = ["Hi!"]
 
@@ -63,7 +64,7 @@ def test_text_lms_can_be_queried(litellm_test_server):
         api_key="fakekey",
         model_type="text",
     )
-    assert openai_lm(dspy.settings, "openai query") == expected_response
+    assert await openai_lm(dspy.settings, "openai query") == expected_response
 
     azure_openai_lm = dspy.LM(
         model="azure/dspy-test-model",
@@ -71,13 +72,13 @@ def test_text_lms_can_be_queried(litellm_test_server):
         api_key="fakekey",
         model_type="text",
     )
-    assert azure_openai_lm(dspy.settings, "azure openai query") == expected_response
+    assert await azure_openai_lm(dspy.settings, "azure openai query") == expected_response
 
 
-def test_lm_calls_support_callables(litellm_test_server):
+async def test_lm_calls_support_callables(litellm_test_server):
     api_base, _ = litellm_test_server
 
-    with mock.patch("litellm.completion", autospec=True, wraps=litellm.completion) as spy_completion:
+    with mock.patch("litellm.acompletion", new_callable=get_async_magic_mock) as spy_completion:
         azure_ad_token_provider = lambda *args, **kwargs: None
         lm_with_callable = dspy.LM(
             model="openai/dspy-test-model",
@@ -85,7 +86,7 @@ def test_lm_calls_support_callables(litellm_test_server):
             api_key="fakekey",
             azure_ad_token_provider=azure_ad_token_provider,
         )
-        lm_with_callable(dspy.settings, "Query")
+        await lm_with_callable(dspy.settings, "Query")
 
         spy_completion.assert_called_once()
         call_args = spy_completion.call_args.kwargs
@@ -95,7 +96,7 @@ def test_lm_calls_support_callables(litellm_test_server):
         assert call_args["azure_ad_token_provider"] is azure_ad_token_provider
 
 
-def test_lm_calls_support_pydantic_models(litellm_test_server):
+async def test_lm_calls_support_pydantic_models(litellm_test_server):
     api_base, _ = litellm_test_server
 
     class ResponseFormat(pydantic.BaseModel):
@@ -107,7 +108,7 @@ def test_lm_calls_support_pydantic_models(litellm_test_server):
         api_key="fakekey",
         response_format=ResponseFormat,
     )
-    lm(dspy.settings, "Query")
+    await lm(dspy.settings, "Query")
 
 
 @pytest.mark.parametrize(
@@ -124,7 +125,7 @@ def test_lm_calls_support_pydantic_models(litellm_test_server):
         # ("500", litellm.InternalServerError, 0, 1),
     ],
 )
-def test_lm_chat_calls_are_retried_for_expected_failures(
+async def test_lm_chat_calls_are_retried_for_expected_failures(
     litellm_test_server,
     error_code,
     expected_exception,
@@ -140,7 +141,7 @@ def test_lm_chat_calls_are_retried_for_expected_failures(
         model_type="chat",
     )
     with pytest.raises(expected_exception):
-        openai_lm(dspy.settings, error_code)
+        await openai_lm(dspy.settings, error_code)
 
     request_logs = read_litellm_test_server_request_logs(server_log_file_path)
     assert len(request_logs) == expected_num_retries + 1  # 1 initial request + 1 retries
@@ -160,7 +161,7 @@ def test_lm_chat_calls_are_retried_for_expected_failures(
         # ("500", litellm.InternalServerError, 0, 2),
     ],
 )
-def test_lm_text_calls_are_retried_for_expected_failures(
+async def test_lm_text_calls_are_retried_for_expected_failures(
     litellm_test_server,
     error_code,
     expected_exception,
@@ -176,7 +177,7 @@ def test_lm_text_calls_are_retried_for_expected_failures(
         model_type="text",
     )
     with pytest.raises(expected_exception):
-        openai_lm(dspy.settings, error_code)
+        await openai_lm(dspy.settings, error_code)
 
     request_logs = read_litellm_test_server_request_logs(server_log_file_path)
     assert len(request_logs) == expected_num_retries + 1  # 1 initial request + 1 retries

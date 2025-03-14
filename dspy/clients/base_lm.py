@@ -86,7 +86,7 @@ class BaseLM(ABC):
 
         return outputs
 
-    def forward(self, prompt=None, messages=None, **kwargs):
+    async def forward(self, settings, prompt=None, messages=None, **kwargs):
         """Forward pass for the language model.
 
         Subclasses must implement this method, and the response should be identical to

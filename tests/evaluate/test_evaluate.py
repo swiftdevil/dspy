@@ -46,14 +46,14 @@ async def test_evaluate_call():
     )
     devset = [new_example("What is 1+1?", "2"), new_example("What is 2+2?", "4")]
     program = Predict("question -> answer")
-    result = await program(question="What is 1+1?")
+    result = await program(dspy.settings, question="What is 1+1?")
     assert result.answer == "2"
     ev = Evaluate(
         devset=devset,
         metric=answer_exact_match,
         display_progress=False,
     )
-    score = await ev(program)
+    score = await ev(dspy.settings, program)
     assert score == 100.0
 
 
@@ -61,7 +61,7 @@ async def test_multithread_evaluate_call():
     dspy.settings.configure(lm=DummyLM({"What is 1+1?": {"answer": "2"}, "What is 2+2?": {"answer": "4"}}))
     devset = [new_example("What is 1+1?", "2"), new_example("What is 2+2?", "4")]
     program = Predict("question -> answer")
-    answer = await program(question="What is 1+1?")
+    answer = await program(dspy.settings, question="What is 1+1?")
     assert answer.answer == "2"
     ev = Evaluate(
         devset=devset,
@@ -69,7 +69,7 @@ async def test_multithread_evaluate_call():
         display_progress=False,
         num_threads=2,
     )
-    score = await ev(program)
+    score = await ev(dspy.settings, program)
     assert score == 100.0
 
 
@@ -82,7 +82,7 @@ async def test_evaluate_call_bad():
         metric=answer_exact_match,
         display_progress=False,
     )
-    score = await ev(program)
+    score = await ev(dspy.settings, program)
     assert score == 0.0
 
 

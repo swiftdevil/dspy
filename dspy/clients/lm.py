@@ -319,8 +319,8 @@ async def litellm_completion(settings: Settings, request: Dict[str, Any], num_re
 
 
 @request_cache(maxsize=None)
-def cached_litellm_text_completion(settings: Settings, request: Dict[str, Any], num_retries: int):
-    return litellm_text_completion(
+async def cached_litellm_text_completion(settings: Settings, request: Dict[str, Any], num_retries: int):
+    return await litellm_text_completion(
         settings,
         request,
         num_retries=num_retries,
@@ -328,7 +328,7 @@ def cached_litellm_text_completion(settings: Settings, request: Dict[str, Any], 
     )
 
 
-def litellm_text_completion(settings: Settings, request: Dict[str, Any], num_retries: int, cache={"no-cache": True, "no-store": True}):
+async def litellm_text_completion(settings: Settings, request: Dict[str, Any], num_retries: int, cache={"no-cache": True, "no-store": True}):
     # Extract the provider and model from the model string.
     # TODO: Not all the models are in the format of "provider/model"
     model = request.pop("model").split("/", 1)
@@ -341,7 +341,7 @@ def litellm_text_completion(settings: Settings, request: Dict[str, Any], num_ret
     # Build the prompt from the messages.
     prompt = "\n\n".join([x["content"] for x in request.pop("messages")] + ["BEGIN RESPONSE:"])
 
-    return litellm.text_completion(
+    return await litellm.atext_completion(
         cache=cache,
         model=f"text-completion-openai/{model}",
         api_key=api_key,
