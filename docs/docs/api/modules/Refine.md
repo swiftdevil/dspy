@@ -1,6 +1,6 @@
-# dspy.ProgramOfThought
+# dspy.Refine
 
-::: dspy.ProgramOfThought
+::: dspy.Refine
     handler: python
     options:
         members:

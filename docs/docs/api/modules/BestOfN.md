@@ -1,6 +1,6 @@
-# dspy.ProgramOfThought
+# dspy.BestOfN
 
-::: dspy.ProgramOfThought
+::: dspy.BestOfN
     handler: python
     options:
         members:

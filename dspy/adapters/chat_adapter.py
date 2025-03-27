@@ -38,7 +38,15 @@ class ChatAdapter(Adapter):
     def __init__(self, callbacks: Optional[list[BaseCallback]] = None):
         super().__init__(callbacks)
 
-    async def __call__(self, settings: Settings, lm: LM, lm_kwargs: dict[str, Any], signature: Type[Signature], demos: list[dict[str, Any]], inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    async def __call__(
+        self,
+        settings: Settings,
+        lm: LM,
+        lm_kwargs: dict[str, Any],
+        signature: Type[Signature],
+        demos: list[dict[str, Any]],
+        inputs: dict[str, Any],
+    ) -> list[dict[str, Any]]:
         try:
             return await super().__call__(settings, lm, lm_kwargs, signature, demos, inputs)
         except Exception as e:
@@ -47,8 +55,10 @@ class ChatAdapter(Adapter):
                 raise e
             # fallback to JSONAdapter
             return await JSONAdapter()(settings, lm, lm_kwargs, signature, demos, inputs)
-    
-    async def format(self, settings: Settings, signature: Type[Signature], demos: list[dict[str, Any]], inputs: dict[str, Any]) -> list[dict[str, Any]]:
+
+    async def format(
+        self, settings: Settings, signature: Type[Signature], demos: list[dict[str, Any]], inputs: dict[str, Any]
+    ) -> list[dict[str, Any]]:
         messages: list[dict[str, Any]] = []
 
         # Extract demos where some of the output_fields are not filled in.
@@ -89,7 +99,7 @@ class ChatAdapter(Adapter):
             if match:
                 # If the header pattern is found, split the rest of the line as content
                 header = match.group(1)
-                remaining_content = line[match.end():].strip()
+                remaining_content = line[match.end() :].strip()
                 sections.append((header, [remaining_content] if remaining_content else []))
             else:
                 sections[-1][1].append(line)
@@ -112,7 +122,9 @@ class ChatAdapter(Adapter):
         return fields
 
     # TODO(PR): Looks ok?
-    async def format_finetune_data(self, settings: Settings, signature: Type[Signature], demos: list[dict[str, Any]], inputs: dict[str, Any], outputs: dict[str, Any]) -> dict[str, list[Any]]:
+    async def format_finetune_data(
+        self, settings, signature: Type[Signature], demos: list[dict[str, Any]], inputs: dict[str, Any], outputs: dict[str, Any]
+    ) -> dict[str, list[Any]]:
         # Get system + user messages
         messages = await self.format(settings, signature, demos, inputs)
 
@@ -135,7 +147,14 @@ class ChatAdapter(Adapter):
         }
         return format_fields(fields_with_values)
 
-    def format_turn(self, signature: Type[Signature], values: dict[str, Any], role: str, incomplete: bool = False, is_conversation_history: bool = False) -> dict[str, Any]:
+    def format_turn(
+        self,
+        signature: Type[Signature],
+        values: dict[str, Any],
+        role: str,
+        incomplete: bool = False,
+        is_conversation_history: bool = False,
+    ) -> dict[str, Any]:
         return format_turn(signature, values, role, incomplete, is_conversation_history)
 
 
@@ -159,7 +178,9 @@ def format_fields(fields_with_values: Dict[FieldInfoWithName, Any]) -> str:
     return "\n\n".join(output).strip()
 
 
-def format_turn(signature: Type[Signature], values: dict[str, Any], role: str, incomplete=False, is_conversation_history=False):
+def format_turn(
+    signature: Type[Signature], values: dict[str, Any], role: str, incomplete=False, is_conversation_history=False
+):
     """
     Constructs a new message ("turn") to append to a chat thread. The message is carefully formatted
     so that it can instruct an LLM to generate responses conforming to the specified DSPy signature.
@@ -238,7 +259,9 @@ def enumerate_fields(fields: dict) -> str:
         parts.append(f"{idx + 1}. `{k}`")
         parts[-1] += f" ({get_annotation_name(v.annotation)})"
         parts[-1] += f": {v.json_schema_extra['desc']}" if v.json_schema_extra["desc"] != f"${{{k}}}" else ""
-
+        parts[-1] += (
+            f"\nConstraints: {v.json_schema_extra['constraints']}" if v.json_schema_extra.get("constraints") else ""
+        )
     return "\n".join(parts).strip()
 
 

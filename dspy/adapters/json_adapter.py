@@ -13,12 +13,12 @@ from pydantic import create_model
 from pydantic.fields import FieldInfo
 
 from dspy.adapters.base import Adapter
-from dspy.adapters.types.image import Image
 from dspy.adapters.types.history import History
+from dspy.adapters.types.image import try_expand_image_tags
 from dspy.adapters.utils import format_field_value, get_annotation_name, parse_value, serialize_for_json
 from dspy.clients.lm import LM
+from dspy.signatures.signature import Signature, SignatureMeta
 from dspy.dsp.utils import Settings
-from dspy.signatures.signature import SignatureMeta, Signature
 from dspy.signatures.utils import get_dspy_field_type
 
 logger = logging.getLogger(__name__)
@@ -28,11 +28,20 @@ class FieldInfoWithName(NamedTuple):
     name: str
     info: FieldInfo
 
+
 class JSONAdapter(Adapter):
     def __init__(self):
         pass
 
-    async def __call__(self, settings: Settings, lm: LM, lm_kwargs: dict[str, Any], signature: Type[Signature], demos: list[dict[str, Any]], inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    async def __call__(
+        self,
+        settings: Settings,
+        lm: LM,
+        lm_kwargs: dict[str, Any],
+        signature: Type[Signature],
+        demos: list[dict[str, Any]],
+        inputs: dict[str, Any],
+    ) -> list[dict[str, Any]]:
         inputs = await self.format(settings, signature, demos, inputs)
         inputs = dict(prompt=inputs) if isinstance(inputs, str) else dict(messages=inputs)
 
@@ -43,11 +52,11 @@ class JSONAdapter(Adapter):
                 try:
                     response_format = _get_structured_outputs_response_format(signature)
                     outputs = await lm(settings, **inputs, **lm_kwargs, response_format=response_format)
-                except Exception:
+                except Exception as e:
                     logger.debug(
-                        "Failed to obtain response using signature-based structured outputs"
-                        " response format: Falling back to default 'json_object' response format."
-                        " Exception: {e}"
+                        f"Failed to obtain response using signature-based structured outputs"
+                        f" response format: Falling back to default 'json_object' response format."
+                        f" Exception: {e}"
                     )
                     outputs = await lm(settings, **inputs, **lm_kwargs, response_format={"type": "json_object"})
             else:
@@ -67,7 +76,9 @@ class JSONAdapter(Adapter):
 
         return values
 
-    async def format(self, settings: Settings, signature: Type[Signature], demos: list[dict[str, Any]], inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    async def format(
+        self, settings: Settings, signature: Type[Signature], demos: list[dict[str, Any]], inputs: dict[str, Any]
+    ) -> list[dict[str, Any]]:
         messages = []
 
         # Extract demos where some of the output_fields are not filled in.
@@ -93,6 +104,7 @@ class JSONAdapter(Adapter):
         else:
             messages.append(self.format_turn(signature, inputs, role="user"))
 
+        messages = try_expand_image_tags(messages)
         return messages
 
     async def parse(self, settings: Settings, signature: Type[Signature], completion: str) -> dict[str, Any]:
@@ -117,45 +129,35 @@ class JSONAdapter(Adapter):
             for field_name, field_info in signature.fields.items()
             if field_name in values
         }
-
         return format_fields(role=role, fields_with_values=fields_with_values)
-    
-    def format_turn(self, signature: Type[Signature], values, role: str, incomplete: bool = False, is_conversation_history: bool = False) -> dict[str, Any]:
+
+    def format_turn(
+        self,
+        signature: Type[Signature],
+        values,
+        role: str,
+        incomplete: bool = False,
+        is_conversation_history: bool = False,
+    ) -> dict[str, Any]:
         return format_turn(signature, values, role, incomplete, is_conversation_history)
-    
-    def format_finetune_data(self, signature: Type[Signature], demos: list[dict[str, Any]], inputs: dict[str, Any], outputs: dict[str, Any]) -> dict[str, list[Any]]:
+
+    async def format_finetune_data(
+        self, settings: Settings, signature: Type[Signature], demos: list[dict[str, Any]], inputs: dict[str, Any], outputs: dict[str, Any]
+    ) -> dict[str, list[Any]]:
         # TODO: implement format_finetune_data method in JSONAdapter
         raise NotImplementedError
-
-
-def _format_field_value(field_info: FieldInfo, value: Any) -> str:
-    """
-    Formats the value of the specified field according to the field's DSPy type (input or output),
-    annotation (e.g. str, int, etc.), and the type of the value itself.
-
-    Args:
-      field_info: Information about the field, including its DSPy field type and annotation.
-      value: The value of the field.
-
-    Returns:
-      The formatted value of the field, represented as a string.
-    """
-    # TODO: Wasnt this easy to fix?
-    if field_info.annotation is Image:
-        raise NotImplementedError("Images are not yet supported in JSON mode.")
-
-    return format_field_value(field_info=field_info, value=value)
 
 
 def format_fields(role: str, fields_with_values: Dict[FieldInfoWithName, Any]) -> str:
     """
     Formats the values of the specified fields according to the field's DSPy type (input or output),
     annotation (e.g. str, int, etc.), and the type of the value itself. Joins the formatted values
-    into a single string, which is is a multiline string if there are multiple fields.
+    into a single string, which is a multiline string if there are multiple fields.
 
     Args:
-      fields_with_values: A dictionary mapping information about a field to its corresponding
-                          value.
+      role: The role of the message ('user' or 'assistant')
+      fields_with_values: A dictionary mapping information about a field to its corresponding value.
+
     Returns:
       The joined formatted values of the fields, represented as a string.
     """
@@ -167,7 +169,7 @@ def format_fields(role: str, fields_with_values: Dict[FieldInfoWithName, Any]) -
 
     output = []
     for field, field_value in fields_with_values.items():
-        formatted_field_value = _format_field_value(field_info=field.info, value=field_value)
+        formatted_field_value = format_field_value(field_info=field.info, value=field_value)
         output.append(f"[[ ## {field.name} ## ]]\n{formatted_field_value}")
 
     return "\n\n".join(output).strip()
@@ -176,7 +178,7 @@ def format_fields(role: str, fields_with_values: Dict[FieldInfoWithName, Any]) -
 def format_turn(
     signature: SignatureMeta,
     values: Dict[str, Any],
-    role,
+    role: str,
     incomplete=False,
     is_conversation_history=False,
 ) -> Dict[str, str]:
@@ -252,6 +254,9 @@ def enumerate_fields(fields):
         parts.append(f"{idx+1}. `{k}`")
         parts[-1] += f" ({get_annotation_name(v.annotation)})"
         parts[-1] += f": {v.json_schema_extra['desc']}" if v.json_schema_extra["desc"] != f"${{{k}}}" else ""
+        parts[-1] += (
+            f"\nConstraints: {v.json_schema_extra['constraints']}" if v.json_schema_extra.get("constraints") else ""
+        )
 
     return "\n".join(parts).strip()
 
