@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Optional, Type
 
 from dspy.adapters.types import History
+from dspy.dsp.utils import Settings
 from dspy.signatures.signature import Signature
 from dspy.utils.callback import BaseCallback, with_callbacks
 
@@ -20,18 +21,19 @@ class Adapter(ABC):
         cls.format = with_callbacks(cls.format)
         cls.parse = with_callbacks(cls.parse)
 
-    def __call__(
+    async def __call__(
         self,
+        settings: Settings,
         lm: "LM",
         lm_kwargs: dict[str, Any],
         signature: Type[Signature],
         demos: list[dict[str, Any]],
         inputs: dict[str, Any],
     ) -> list[dict[str, Any]]:
-        inputs_ = self.format(signature, demos, inputs)
+        inputs_ = await self.format(settings, signature, demos, inputs)
         inputs_ = dict(prompt=inputs_) if isinstance(inputs_, str) else dict(messages=inputs_)
 
-        outputs = lm(**inputs_, **lm_kwargs)
+        outputs = await lm(settings, **inputs_, **lm_kwargs)
         values = []
 
         for output in outputs:
@@ -40,7 +42,7 @@ class Adapter(ABC):
             if isinstance(output, dict):
                 output, output_logprobs = output["text"], output["logprobs"]
 
-            value = self.parse(signature, output)
+            value = await self.parse(settings, signature, output)
 
             if set(value.keys()) != set(signature.output_fields.keys()):
                 raise ValueError(
@@ -56,8 +58,9 @@ class Adapter(ABC):
         return values
 
     @abstractmethod
-    def format(
+    async def format(
         self,
+        settings: Settings,
         signature: Type[Signature],
         demos: list[dict[str, Any]],
         inputs: dict[str, Any],
@@ -65,14 +68,15 @@ class Adapter(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def parse(self, signature: Type[Signature], completion: str) -> dict[str, Any]:
+    async def parse(self, settings: Settings, signature: Type[Signature], completion: str) -> dict[str, Any]:
         raise NotImplementedError
 
     def format_fields(self, signature: Type[Signature], values: dict[str, Any], role: str) -> str:
         raise NotImplementedError
 
-    def format_finetune_data(
+    async def format_finetune_data(
         self,
+        settings: Settings,
         signature: Type[Signature],
         demos: list[dict[str, Any]],
         inputs: dict[str, Any],

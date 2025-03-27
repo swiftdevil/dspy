@@ -2,6 +2,7 @@ import random
 
 from pydantic import BaseModel
 
+from dspy.adapters.chat_adapter import ChatAdapter
 from dspy.clients.base_lm import BaseLM
 from dspy.clients.lm import LM
 from dspy.predict.parameter import Parameter
@@ -9,8 +10,6 @@ from dspy.primitives.prediction import Prediction
 from dspy.primitives.program import Module
 from dspy.signatures.signature import ensure_signature
 from dspy.utils.callback import with_callbacks
-from dspy.dsp.utils import settings
-from dspy.adapters.chat_adapter import ChatAdapter
 
 
 class Predict(Module, Parameter):
@@ -69,10 +68,10 @@ class Predict(Module, Parameter):
         return self
 
     @with_callbacks
-    def __call__(self, **kwargs):
-        return self.forward(**kwargs)
+    async def __call__(self, settings, *args, **kwargs):
+        return await self.forward(settings, *args, **kwargs)
 
-    def forward(self, **kwargs):
+    async def forward(self, settings, *args, **kwargs):
         # Extract the three privileged keyword arguments.
         assert "new_signature" not in kwargs, "new_signature is no longer a valid keyword argument."
         signature = ensure_signature(kwargs.pop("signature", self.signature))
@@ -97,8 +96,9 @@ class Predict(Module, Parameter):
             print(f"WARNING: Not all input fields were provided to module. Present: {present}. Missing: {missing}.")
 
         adapter = settings.adapter or ChatAdapter()
-        completions = adapter(
-            lm,
+        completions = await adapter(
+            settings=settings,
+            lm=lm,
             lm_kwargs=config,
             signature=signature,
             demos=demos,

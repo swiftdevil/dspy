@@ -14,11 +14,11 @@ class DummyModule(dspy.Module):
         self.predictor = Predict(signature)
         self.forward_fn = forward_fn
 
-    def forward(self, **kwargs) -> Prediction:
-        return self.forward_fn(self, **kwargs)
+    async def forward(self, settings, **kwargs) -> Prediction:
+        return await self.forward_fn(self, settings, **kwargs)
 
 
-def test_refine_forward_success_first_attempt():
+async def test_refine_forward_success_first_attempt():
     lm = DummyLM([{
         "answer": "Brussels"
     }, {
@@ -29,9 +29,9 @@ def test_refine_forward_success_first_attempt():
     dspy.settings.configure(lm=lm)
     module_call_count = [0]
 
-    def count_calls(self, **kwargs):
+    async def count_calls(self, settings, **kwargs):
         module_call_count[0] += 1
-        return self.predictor(**kwargs)
+        return await self.predictor(settings, **kwargs)
 
     reward_call_count = [0]
 
@@ -46,7 +46,7 @@ def test_refine_forward_success_first_attempt():
                         N=3,
                         reward_fn=reward_fn,
                         threshold=1.0)
-    result = best_of_n(question="What is the capital of Belgium?")
+    result = await best_of_n(settings=dspy.settings, question="What is the capital of Belgium?")
 
     assert result.answer == "Brussels", "Result should be `Brussels`"
     assert reward_call_count[0] > 0, "Reward function should have been called"
@@ -55,7 +55,7 @@ def test_refine_forward_success_first_attempt():
         % module_call_count[0])
 
 
-def test_refine_module_default_fail_count():
+async def test_refine_module_default_fail_count():
     lm = DummyLM([{
         "answer": "Brussels"
     }, {
@@ -65,7 +65,7 @@ def test_refine_module_default_fail_count():
     }])
     dspy.settings.configure(lm=lm)
 
-    def always_raise(self, **kwargs):
+    async def always_raise(self, settings, **kwargs):
         raise ValueError("Deliberately failing")
 
     predict = DummyModule("question -> answer", always_raise)
@@ -75,10 +75,10 @@ def test_refine_module_default_fail_count():
                         reward_fn=lambda _, __: 1.0,
                         threshold=0.0)
     with pytest.raises(ValueError):
-        best_of_n(question="What is the capital of Belgium?")
+        await best_of_n(settings=dspy.settings, question="What is the capital of Belgium?")
 
 
-def test_refine_module_custom_fail_count():
+async def test_refine_module_custom_fail_count():
     lm = DummyLM([{
         "answer": "Brussels"
     }, {
@@ -89,11 +89,11 @@ def test_refine_module_custom_fail_count():
     dspy.settings.configure(lm=lm)
     module_call_count = [0]
 
-    def raise_on_second_call(self, **kwargs):
+    async def raise_on_second_call(self, settings, **kwargs):
         if module_call_count[0] < 2:
             module_call_count[0] += 1
             raise ValueError("Deliberately failing")
-        return self.predictor(**kwargs)
+        return await self.predictor(settings, **kwargs)
 
     predict = DummyModule("question -> answer", raise_on_second_call)
 
@@ -103,7 +103,7 @@ def test_refine_module_custom_fail_count():
                         threshold=0.0,
                         fail_count=1)
     with pytest.raises(ValueError):
-        best_of_n(question="What is the capital of Belgium?")
+        await best_of_n(settings=dspy.settings, question="What is the capital of Belgium?")
     assert module_call_count[0] == 2, (
         "Module should have been called exactly 2 times, but was called %d times"
         % module_call_count[0])

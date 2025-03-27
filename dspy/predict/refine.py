@@ -94,13 +94,13 @@ class Refine(Module):
         except TypeError:
             self.reward_fn_code = inspect.getsource(reward_fn.__class__)
 
-    def forward(self, **kwargs):
-        lm = self.module.get_lm() or dspy.settings.lm
+    async def forward(self, settings, **kwargs):
+        lm = self.module.get_lm() or settings.lm
         temps = [lm.kwargs["temperature"]] + [0.5 + i * (0.5 / self.N) for i in range(self.N)]
         temps = list(dict.fromkeys(temps))[: self.N]
         best_pred, best_trace, best_reward = None, None, -float("inf")
         advice = None
-        adapter = dspy.settings.adapter or dspy.ChatAdapter()
+        adapter = settings.adapter or dspy.ChatAdapter()
 
         for idx, t in enumerate(temps):
             lm_ = lm.copy(temperature=t)
@@ -112,23 +112,23 @@ class Refine(Module):
             module_names = [name for name, _ in mod.named_predictors()]
 
             try:
-                with dspy.context(trace=[]):
+                with settings.context(trace=[]) as settings_1:
                     if not advice:
-                        outputs = mod(**kwargs)
+                        outputs = await mod(settings, **kwargs)
                     else:
 
                         class WrapperAdapter(adapter.__class__):
-                            def __call__(self, lm, lm_kwargs, signature, demos, inputs):
+                            async def __call__(self, settings, lm, lm_kwargs, signature, demos, inputs):
                                 inputs["hint_"] = advice.get(signature2name[signature], "N/A")
                                 signature = signature.append(
                                     "hint_", InputField(desc="A hint to the module from an earlier run")
                                 )
-                                return adapter(lm, lm_kwargs, signature, demos, inputs)
+                                return await adapter(settings, lm, lm_kwargs, signature, demos, inputs)
 
-                        with dspy.context(adapter=WrapperAdapter()):
-                            outputs = mod(**kwargs)
+                        with settings_1.context(adapter=WrapperAdapter()) as settings_2:
+                            outputs = await mod(settings_2, **kwargs)
 
-                    trace = dspy.settings.trace.copy()
+                    trace = settings_1.trace.copy()
 
                     # TODO: Remove the hint from the trace, if it's there.
 

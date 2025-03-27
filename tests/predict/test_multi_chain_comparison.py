@@ -26,15 +26,16 @@ completions = [
 ]
 
 
-def test_basic_example():
+async def test_basic_example():
     # Pass signature to MultiChainComparison module
     compare_answers = dspy.MultiChainComparison(BasicQA)
 
     # Call the MultiChainComparison on the completions
     question = "What is the color of the sky?"
     lm = DummyLM([{"rationale": "my rationale", "answer": "blue"}])
-    dspy.settings.configure(lm=lm)
-    final_pred = compare_answers(completions, question=question)
+    with dspy.context() as settings:
+        settings.configure(lm=lm)
+        final_pred = await compare_answers(settings, completions, question=question)
 
     assert final_pred.rationale == "my rationale"
     assert final_pred.answer == "blue"

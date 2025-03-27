@@ -56,7 +56,7 @@ def test_save_model_with_custom_signature(tmp_path):
     assert predict.signature == loaded_predict.signature
 
 
-def test_save_compiled_model(tmp_path):
+async def test_save_compiled_model(tmp_path):
     predict = dspy.Predict("question->answer")
     dspy.settings.configure(lm=DummyLM([{"answer": "blue"}, {"answer": "white"}] * 10))
 
@@ -68,11 +68,11 @@ def test_save_compiled_model(tmp_path):
     ]
     trainset = [dspy.Example(**example).with_inputs("question") for example in trainset]
 
-    def dummy_metric(example, pred, trace=None):
+    async def dummy_metric(settings, example, pred, trace=None):
         return True
 
     optimizer = dspy.BootstrapFewShot(max_bootstrapped_demos=4, max_labeled_demos=4, max_rounds=5, metric=dummy_metric)
-    compiled_predict = optimizer.compile(predict, trainset=trainset)
+    compiled_predict = await optimizer.compile(dspy.settings, predict, trainset=trainset)
     compiled_predict.save(tmp_path, save_program=True)
 
     loaded_predict = dspy.load(tmp_path)

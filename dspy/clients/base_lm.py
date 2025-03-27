@@ -48,8 +48,8 @@ class BaseLM(ABC):
         self.history = []
 
     @with_callbacks
-    def __call__(self, prompt=None, messages=None, **kwargs):
-        response = self.forward(prompt=prompt, messages=messages, **kwargs)
+    async def __call__(self, settings, prompt=None, messages=None, **kwargs):
+        response = await self.forward(settings, prompt=prompt, messages=messages, **kwargs)
 
         if kwargs.get("logprobs"):
             outputs = [
@@ -86,7 +86,7 @@ class BaseLM(ABC):
 
         return outputs
 
-    def forward(self, prompt=None, messages=None, **kwargs):
+    async def forward(self, settings, prompt=None, messages=None, **kwargs):
         """Forward pass for the language model.
 
         Subclasses must implement this method, and the response should be identical to
