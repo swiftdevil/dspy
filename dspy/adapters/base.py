@@ -30,7 +30,7 @@ class Adapter(ABC):
         demos: list[dict[str, Any]],
         inputs: dict[str, Any],
     ) -> list[dict[str, Any]]:
-        inputs_ = self.format(signature, demos, inputs)
+        inputs_ = await self.format(settings, signature, demos, inputs)
         inputs_ = dict(prompt=inputs_) if isinstance(inputs_, str) else dict(messages=inputs_)
 
         outputs = await lm(settings, **inputs_, **lm_kwargs)

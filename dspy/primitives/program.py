@@ -1,8 +1,5 @@
-from abc import abstractmethod
-
 import magicattr
 
-from dspy.dsp.utils import Settings
 from dspy.predict.parallel import Parallel
 from dspy.primitives.module import BaseModule
 from dspy.utils.callback import with_callbacks

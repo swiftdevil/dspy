@@ -13,7 +13,7 @@ class Parallel:
         self,
         num_threads: int = 32,
         max_errors: int = 10,
-        access_examples: bool = True,
+        access_examples: bool = False,
         return_failed_examples: bool = False,
         provide_traceback: bool = False,
         disable_progress_bar: bool = False,

@@ -92,7 +92,7 @@ def test_signature_optimizer_statistics_tracking():
 # Assuming the setup_signature_optimizer fixture and simple_metric function are defined as before
 
 
-def test_optimization_and_output_verification():
+async def test_optimization_and_output_verification():
     lm = DummyLM(
         [
             {"proposed_instruction": "Optimized Prompt", "proposed_prefix_for_output_field": "Optimized Prefix"},
@@ -111,13 +111,13 @@ def test_optimization_and_output_verification():
     student = SimpleModule("input -> output")
 
     # Compile the student with the optimizer
-    optimized_student = optimizer.compile(
-        student, trainset=trainset, eval_kwargs={"num_threads": 1, "display_progress": False}
+    optimized_student = await optimizer.compile(
+        dspy.settings, student, trainset=trainset, eval_kwargs={"num_threads": 1, "display_progress": False}
     )
 
     # Simulate calling the optimized student with a new input
     test_input = "What is the capital of France?"
-    prediction = optimized_student(input=test_input)
+    prediction = await optimized_student(dspy.settings, input=test_input)
 
     print(lm.get_convo(-1))
 

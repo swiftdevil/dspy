@@ -53,8 +53,8 @@ class BestOfN(Module):
         self.N = N
         self.fail_count = fail_count or N  # default to N if fail_count is not provided
 
-    def forward(self, **kwargs):
-        lm = self.module.get_lm() or dspy.settings.lm
+    async def forward(self, settings, **kwargs):
+        lm = self.module.get_lm() or settings.lm
         temps = [lm.kwargs["temperature"]] + [0.5 + i * (0.5 / self.N) for i in range(self.N)]
         temps = list(dict.fromkeys(temps))[: self.N]
         best_pred, best_trace, best_reward = None, None, -float("inf")
@@ -65,9 +65,9 @@ class BestOfN(Module):
             mod.set_lm(lm_)
 
             try:
-                with dspy.context(trace=[]):
-                    pred = mod(**kwargs)
-                    trace = dspy.settings.trace.copy()
+                with dspy.context(trace=[]) as settings:
+                    pred = await mod(settings, **kwargs)
+                    trace = settings.trace.copy()
 
                     # NOTE: Not including the trace of reward_fn.
                     reward = self.reward_fn(kwargs, pred)

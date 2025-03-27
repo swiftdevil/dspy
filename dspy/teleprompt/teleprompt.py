@@ -1,11 +1,13 @@
 from typing import Optional, Any
+
+from dspy.dsp.utils import Settings
 from dspy.primitives import Module, Example
 
 class Teleprompter:
     def __init__(self):
         pass
 
-    def compile(self, student: Module, *, trainset: list[Example], teacher: Optional[Module] = None, valset: Optional[list[Example]] = None, **kwargs) -> Module:
+    async def compile(self, settings: Settings, student: Module, *, trainset: list[Example], teacher: Optional[Module] = None, valset: Optional[list[Example]] = None, **kwargs) -> Module:
         """
         Optimize the student program.
 

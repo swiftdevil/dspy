@@ -12,13 +12,13 @@ class DummyModule(dspy.Module):
         pass
 
 
-def test_eval_candidate_program_full_trainset():
+async def test_eval_candidate_program_full_trainset():
     trainset = [1, 2, 3, 4, 5]
     candidate_program = DummyModule()
     evaluate = Mock(return_value=0)
     batch_size = 10
 
-    result = eval_candidate_program(batch_size, trainset, candidate_program, evaluate)
+    result = await eval_candidate_program(batch_size, trainset, candidate_program, evaluate)
 
     evaluate.assert_called_once()
     _, called_kwargs = evaluate.call_args
@@ -26,13 +26,13 @@ def test_eval_candidate_program_full_trainset():
     assert called_kwargs['callback_metadata'] == {"metric_key": "eval_full"}
     assert result == 0
 
-def test_eval_candidate_program_minibatch():
+async def test_eval_candidate_program_minibatch():
     trainset = [1, 2, 3, 4, 5]
     candidate_program = DummyModule()
     evaluate = Mock(return_value=0)
     batch_size = 3
 
-    result = eval_candidate_program(batch_size, trainset, candidate_program, evaluate)
+    result = await eval_candidate_program(batch_size, trainset, candidate_program, evaluate)
 
     evaluate.assert_called_once()
     _, called_kwargs = evaluate.call_args
@@ -41,13 +41,13 @@ def test_eval_candidate_program_minibatch():
     assert result == 0
 
 @pytest.mark.parametrize("return_all_scores", [True, False])
-def test_eval_candidate_program_failure(return_all_scores):
+async def test_eval_candidate_program_failure(return_all_scores):
     trainset = [1, 2, 3, 4, 5]
     candidate_program = DummyModule()
     evaluate = Mock(side_effect=ValueError("Error"))
     batch_size = 3
 
-    result = eval_candidate_program(batch_size, trainset, candidate_program, evaluate, return_all_scores=return_all_scores)
+    result = await eval_candidate_program(batch_size, trainset, candidate_program, evaluate, return_all_scores=return_all_scores)
 
     if return_all_scores:
         assert result == (0.0, [0.0]*len(trainset))

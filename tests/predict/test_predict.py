@@ -506,14 +506,14 @@ async def test_call_predict_with_chat_history(adapter_type):
 
 
 @pytest.mark.parametrize("adapter_type", ["chat", "json"])
-def test_field_constraints(adapter_type):
+async def test_field_constraints(adapter_type):
     class SpyLM(dspy.LM):
         def __init__(self, *args, return_json=False, **kwargs):
             super().__init__(*args, **kwargs)
             self.calls = []
             self.return_json = return_json
 
-        def __call__(self, prompt=None, messages=None, **kwargs):
+        async def __call__(self, settings, prompt=None, messages=None, **kwargs):
             self.calls.append({"prompt": prompt, "messages": messages, "kwargs": kwargs})
             if self.return_json:
                 return ["{'score':'0.5', 'count':'2'}"]
@@ -540,7 +540,7 @@ def test_field_constraints(adapter_type):
         dspy.settings.configure(adapter=dspy.JSONAdapter(), lm=lm)
 
     # Call the predictor to trigger instruction generation
-    program(text="hello world", number=5)
+    await program(settings=dspy.settings, text="hello world", number=5)
 
     # Get the system message containing the instructions
     system_message = lm.calls[0]["messages"][0]["content"]
@@ -556,7 +556,7 @@ def test_field_constraints(adapter_type):
 
 
 @pytest.mark.skipif(os.environ.get("OPENAI_API_KEY") is None, reason="Skipping if OPENAI_API_KEY is not set")
-def test_litellm_cache_initialization_failure():
+async def test_litellm_cache_initialization_failure():
     """Test that DSPy handles litellm cache initialization failure gracefully."""
     # Mock Cache to raise a permission error
     mock_cache = MagicMock()
@@ -582,4 +582,4 @@ def test_litellm_cache_initialization_failure():
 
     # No exception should be raised when litellm.cache is None even if we try to use the cache.
     assert dspy.settings.lm.cache == True
-    predictor(question="test")
+    await predictor(settings=dspy.settings, question="test")

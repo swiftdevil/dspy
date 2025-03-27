@@ -40,8 +40,8 @@ class ChatAdapter(Adapter):
 
     async def __call__(
         self,
-        settings: Settings,
-        lm: LM,
+            settings: Settings,
+            lm: LM,
         lm_kwargs: dict[str, Any],
         signature: Type[Signature],
         demos: list[dict[str, Any]],
