@@ -1,11 +1,9 @@
 import signal
 import threading
-from typing import Callable
 from unittest.mock import patch
 import pandas as pd
 
 import pytest
-from sqlalchemy.util import await_only
 
 import dspy
 from dspy.evaluate.evaluate import Evaluate
@@ -47,15 +45,13 @@ async def test_evaluate_call():
     )
     devset = [new_example("What is 1+1?", "2"), new_example("What is 2+2?", "4")]
     program = Predict("question -> answer")
-    result = await program(dspy.settings, question="What is 1+1?")
-    assert result.answer == "2"
+    assert (await program(dspy.settings, question="What is 1+1?")).answer == "2"
     ev = Evaluate(
         devset=devset,
         metric=answer_exact_match,
         display_progress=False,
     )
-    score = await ev(dspy.settings, program)
-    assert score == 100.0
+    assert (await ev(dspy.settings, program)) == 100.0
 
 
 def test_construct_result_df():
@@ -86,16 +82,14 @@ async def test_multithread_evaluate_call():
     dspy.settings.configure(lm=DummyLM({"What is 1+1?": {"answer": "2"}, "What is 2+2?": {"answer": "4"}}))
     devset = [new_example("What is 1+1?", "2"), new_example("What is 2+2?", "4")]
     program = Predict("question -> answer")
-    answer = await program(dspy.settings, question="What is 1+1?")
-    assert answer.answer == "2"
+    assert (await program(dspy.settings, question="What is 1+1?")).answer == "2"
     ev = Evaluate(
         devset=devset,
         metric=answer_exact_match,
         display_progress=False,
         num_threads=2,
     )
-    score = await ev(dspy.settings, program)
-    assert score == 100.0
+    assert (await ev(dspy.settings, program)) == 100.0
 
 
 async def test_evaluate_call_bad():
@@ -107,11 +101,10 @@ async def test_evaluate_call_bad():
         metric=answer_exact_match,
         display_progress=False,
     )
-    score = await ev(dspy.settings, program)
-    assert score == 0.0
+    assert (await ev(dspy.settings, program)) == 0.0
 
 
-def get_predict_def(sig: str, key) -> Callable:
+def get_predict_def(sig: str, key):
     async def x(settings, text: str):
         result = await Predict(sig)(settings, text=text)
         return result[key]
@@ -184,7 +177,7 @@ async def test_evaluate_callback():
             self.end_call_outputs = None
             self.end_call_count = 0
 
-        def on_evaluate_start(
+        async def on_evaluate_start(
             self,
             call_id: str,
             instance,
@@ -194,7 +187,7 @@ async def test_evaluate_callback():
             self.start_call_inputs = inputs
             self.start_call_count += 1
         
-        def on_evaluate_end(
+        async def on_evaluate_end(
             self,
             call_id: str,
             settings,
@@ -216,15 +209,13 @@ async def test_evaluate_callback():
     )
     devset = [new_example("What is 1+1?", "2"), new_example("What is 2+2?", "4")]
     program = Predict("question -> answer")
-    answer = await program(dspy.settings, question="What is 1+1?")
-    assert answer.answer == "2"
+    assert (await program(dspy.settings, question="What is 1+1?")).answer == "2"
     ev = Evaluate(
         devset=devset,
         metric=answer_exact_match,
         display_progress=False,
     )
-    score = await ev(dspy.settings, program)
-    assert score == 100.0
+    assert (await ev(dspy.settings, program)) == 100.0
     assert callback.start_call_inputs["program"] == program
     assert callback.start_call_count == 1
     assert callback.end_call_outputs == 100.0
