@@ -65,7 +65,7 @@ async def test_signature_optimizer_optimization_process():
     # such as checking the instructions of the optimized student's predictors.
 
 
-def test_signature_optimizer_statistics_tracking():
+async def test_signature_optimizer_statistics_tracking():
     optimizer = COPRO(metric=simple_metric, breadth=2, depth=1, init_temperature=1.4)
     optimizer.track_stats = True  # Enable statistics tracking
 
@@ -80,8 +80,8 @@ def test_signature_optimizer_statistics_tracking():
         )
     )
     student = SimpleModule("input -> output")
-    optimized_student = optimizer.compile(
-        student, trainset=trainset, eval_kwargs={"num_threads": 1, "display_progress": False}
+    optimized_student = await optimizer.compile(
+        dspy.settings, student, trainset=trainset, eval_kwargs={"num_threads": 1, "display_progress": False}
     )
 
     # Verify that statistics have been tracked and attached to the optimized student
@@ -124,7 +124,7 @@ async def test_optimization_and_output_verification():
     assert prediction.output == "Paris"
 
 
-def test_statistics_tracking_during_optimization():
+async def test_statistics_tracking_during_optimization():
     dspy.settings.configure(
         lm=DummyLM(
             [
@@ -137,8 +137,8 @@ def test_statistics_tracking_during_optimization():
     optimizer.track_stats = True  # Enable statistics tracking
 
     student = SimpleModule("input -> output")
-    optimized_student = optimizer.compile(
-        student, trainset=trainset, eval_kwargs={"num_threads": 1, "display_progress": False}
+    optimized_student = await optimizer.compile(
+        dspy.settings, student, trainset=trainset, eval_kwargs={"num_threads": 1, "display_progress": False}
     )
 
     # Verify that statistics have been tracked

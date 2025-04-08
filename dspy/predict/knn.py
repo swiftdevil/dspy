@@ -1,11 +1,14 @@
+import asyncio
+
 import numpy as np
 
 from dspy.clients import Embedder
+from dspy.dsp.utils import Settings
 from dspy.primitives import Example
 
 
 class KNN:
-    def __init__(self, k: int, trainset: list[Example], vectorizer: Embedder):
+    def __init__(self, settings: Settings, k: int, trainset: list[Example], vectorizer: Embedder):
         """
         A k-nearest neighbors retriever that finds similar examples from a training set.
 
@@ -43,10 +46,10 @@ class KNN:
             " | ".join([f"{key}: {value}" for key, value in example.items() if key in example._input_keys])
             for example in self.trainset
         ]
-        self.trainset_vectors = self.embedding(trainset_casted_to_vectorize).astype(np.float32)
+        self.trainset_vectors = (asyncio.get_event_loop().run_until_complete(self.embedding(settings, trainset_casted_to_vectorize)).astype(np.float32))
 
-    def __call__(self, **kwargs) -> list:
-        input_example_vector = self.embedding([" | ".join([f"{key}: {val}" for key, val in kwargs.items()])])
+    async def __call__(self, settings, **kwargs) -> list:
+        input_example_vector = await self.embedding(settings, [" | ".join([f"{key}: {val}" for key, val in kwargs.items()])])
         scores = np.dot(self.trainset_vectors, input_example_vector.T).squeeze()
         nearest_samples_idxs = scores.argsort()[-self.k :][::-1]
         return [self.trainset[cur_idx] for cur_idx in nearest_samples_idxs]

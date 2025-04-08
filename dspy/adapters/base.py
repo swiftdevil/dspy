@@ -173,7 +173,6 @@ class Adapter:
 
     def format_user_message_content(
         self,
-        settings: Settings,
         signature: Type[Signature],
         inputs: dict[str, Any],
         prefix: str = "",

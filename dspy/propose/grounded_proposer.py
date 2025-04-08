@@ -320,8 +320,9 @@ class GroundedProposer(Proposer):
                 self.use_dataset_summary = False
                 print("")
 
-    def propose_instructions_for_program(
+    async def propose_instructions_for_program(
         self,
+        settings,
         trainset,
         program,
         demo_candidates,
@@ -365,7 +366,8 @@ class GroundedProposer(Proposer):
                         print(f"Selected tip: {selected_tip_key}")
 
                 proposed_instructions[pred_i].append(
-                    self.propose_instruction_for_predictor(
+                    await self.propose_instruction_for_predictor(
+                        settings=settings,
                         program=program,
                         predictor=predictor,
                         pred_i=pred_i,
@@ -379,7 +381,7 @@ class GroundedProposer(Proposer):
         
         return proposed_instructions
 
-    def propose_instruction_for_predictor(
+    async def propose_instruction_for_predictor(
         self,
         settings,
         program,
@@ -418,7 +420,7 @@ class GroundedProposer(Proposer):
 
         with settings.context(lm=self.prompt_model) as prompt_context:
             self.prompt_model.kwargs["temperature"] = modified_temp
-            proposed_instruction = instruction_generator.forward(
+            proposed_instruction = (await instruction_generator.forward(
                 settings=prompt_context,
                 demo_candidates=demo_candidates,
                 pred_i=pred_i,
@@ -428,7 +430,7 @@ class GroundedProposer(Proposer):
                 previous_instructions=instruction_history,
                 num_demos_in_context = self.num_demos_in_context,
                 tip=tip,
-            ).proposed_instruction
+            )).proposed_instruction
         self.prompt_model.kwargs["temperature"] = original_temp
 
         # Log the trace used to generate the new instruction, along with the new instruction itself

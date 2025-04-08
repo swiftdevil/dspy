@@ -134,7 +134,7 @@ class DummyLM(LM):
         return self.history[index]["messages"], self.history[index]["outputs"]
 
 
-def dummy_rm(settings, passages=()) -> callable:
+async def dummy_rm(settings, passages=()) -> callable:
     if not passages:
 
         def inner(query: str, *, k: int, **kwargs):
@@ -143,7 +143,7 @@ def dummy_rm(settings, passages=()) -> callable:
         return inner
     max_length = max(map(len, passages)) + 100
     vectorizer = DummyVectorizer(max_length)
-    passage_vecs = vectorizer(settings, passages)
+    passage_vecs = await vectorizer(settings, passages)
 
     def inner(query: str, *, k: int, **kwargs):
         assert k <= len(passages)
@@ -174,7 +174,7 @@ class DummyVectorizer:
             h %= self.P
         return h % self.max_length
 
-    def __call__(self, settings, texts: list[str]) -> np.ndarray:
+    async def __call__(self, settings, texts: list[str]) -> np.ndarray:
         vecs = []
         for text in texts:
             grams = [text[i : i + self.n_gram] for i in range(len(text) - self.n_gram + 1)]

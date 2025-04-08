@@ -300,6 +300,7 @@ def with_callbacks(fn):
             inputs.pop("self")
         elif "instance" in inputs:
             inputs.pop("instance")
+        inputs.pop("settings", None)
 
         for callback in callbacks:
             try:

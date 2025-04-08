@@ -9,6 +9,7 @@ import optuna
 from optuna.distributions import CategoricalDistribution
 
 import dspy
+from dspy.dsp.utils import Settings
 from dspy.evaluate.evaluate import Evaluate
 from dspy.propose import GroundedProposer
 from dspy.teleprompt.teleprompt import Teleprompter
@@ -91,6 +92,7 @@ class MIPROv2(Teleprompter):
 
     async def compile(
         self,
+        settings: Settings,
         student: Any,
         *,
         trainset: List,
@@ -163,10 +165,11 @@ class MIPROv2(Teleprompter):
         )
 
         # Step 1: Bootstrap few-shot examples
-        demo_candidates = self._bootstrap_fewshot_examples(program, trainset, seed, teacher)
+        demo_candidates = await self._bootstrap_fewshot_examples(settings, program, trainset, seed, teacher)
 
         # Step 2: Propose instruction candidates
-        instruction_candidates = self._propose_instructions(
+        instruction_candidates = await self._propose_instructions(
+            settings,
             program,
             trainset,
             demo_candidates,
@@ -354,7 +357,7 @@ class MIPROv2(Teleprompter):
         )
         return user_input == "y"
 
-    def _bootstrap_fewshot_examples(self, program: Any, trainset: List, seed: int, teacher: Any) -> Optional[List]:
+    async def _bootstrap_fewshot_examples(self, settings: Settings, program: Any, trainset: List, seed: int, teacher: Any) -> Optional[List]:
         logger.info("\n==> STEP 1: BOOTSTRAP FEWSHOT EXAMPLES <==")
         if self.max_bootstrapped_demos > 0:
             logger.info(
@@ -368,7 +371,8 @@ class MIPROv2(Teleprompter):
         zeroshot = self.max_bootstrapped_demos == 0 and self.max_labeled_demos == 0
 
         try:
-            demo_candidates = create_n_fewshot_demo_sets(
+            demo_candidates = await create_n_fewshot_demo_sets(
+                settings=settings,
                 student=program,
                 num_candidate_sets=self.num_candidates,
                 trainset=trainset,
@@ -391,8 +395,9 @@ class MIPROv2(Teleprompter):
 
         return demo_candidates
 
-    def _propose_instructions(
+    async def _propose_instructions(
         self,
+        settings: Settings,
         program: Any,
         trainset: List,
         demo_candidates: Optional[List],
@@ -425,7 +430,8 @@ class MIPROv2(Teleprompter):
         )
 
         logger.info("\nProposing instructions...\n")
-        instruction_candidates = proposer.propose_instructions_for_program(
+        instruction_candidates = await proposer.propose_instructions_for_program(
+            settings=settings,
             trainset=trainset,
             program=program,
             demo_candidates=demo_candidates,

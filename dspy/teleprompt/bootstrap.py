@@ -78,7 +78,7 @@ class BootstrapFewShot(Teleprompter):
     async def compile(self, settings, student, *, teacher=None, trainset):
         self.trainset = trainset
 
-        self._prepare_student_and_teacher(student, teacher)
+        await self._prepare_student_and_teacher(settings, student, teacher)
         self._prepare_predictor_mappings()
         await self._bootstrap(settings)
 
@@ -91,7 +91,7 @@ class BootstrapFewShot(Teleprompter):
 
         return self.student
 
-    def _prepare_student_and_teacher(self, student, teacher):
+    async def _prepare_student_and_teacher(self, settings, student, teacher):
         self.student = student.reset_copy()
 
         # NOTE: behavior change on Oct 28, 2024. Deep copy instead of reset copy for the student-as-teacher.
@@ -101,7 +101,7 @@ class BootstrapFewShot(Teleprompter):
 
         if self.max_labeled_demos and getattr(self.teacher, "_compiled", False) is False:
             teleprompter = LabeledFewShot(k=self.max_labeled_demos)
-            self.teacher = teleprompter.compile(self.teacher.reset_copy(), trainset=self.trainset)
+            self.teacher = await teleprompter.compile(settings, self.teacher.reset_copy(), trainset=self.trainset)
 
     def _prepare_predictor_mappings(self):
         name2predictor, predictor2name = {}, {}
