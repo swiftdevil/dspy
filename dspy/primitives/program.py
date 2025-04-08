@@ -3,6 +3,7 @@ import magicattr
 from dspy.predict.parallel import Parallel
 from dspy.primitives.module import BaseModule
 from dspy.utils.callback import with_callbacks
+from dspy.utils.usage_tracker import track_usage
 
 
 class ProgramMeta(type):
@@ -19,6 +20,12 @@ class Module(BaseModule, metaclass=ProgramMeta):
 
     @with_callbacks
     async def __call__(self, settings, *args, **kwargs):
+        if settings.track_usage and settings.usage_tracker is None:
+            with track_usage() as usage_tracker:
+                output = await self.forward(settings, *args, **kwargs)
+                output.set_lm_usage(usage_tracker.get_total_tokens())
+                return output
+
         return await self.forward(settings, *args, **kwargs)
 
     def named_predictors(self):

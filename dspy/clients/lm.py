@@ -20,6 +20,7 @@ import dspy
 from dspy.clients.openai import OpenAIProvider
 from dspy.clients.provider import Provider, TrainingJob
 from dspy.clients.utils_finetune import TrainDataFormat
+from dspy.dsp.utils.settings import settings
 from dspy.utils.callback import BaseCallback, with_callbacks
 
 from .base_lm import BaseLM
@@ -111,7 +112,7 @@ class LM(BaseLM):
         if cache_in_memory:
             completion = cached_litellm_completion if self.model_type == "chat" else cached_litellm_text_completion
 
-            return await completion(
+            results = await completion(
                 settings=settings,
                 request=dict(model=self.model, messages=messages, **kwargs),
                 num_retries=self.num_retries,
@@ -119,13 +120,17 @@ class LM(BaseLM):
         else:
             completion = litellm_completion if self.model_type == "chat" else litellm_text_completion
 
-            return await completion(
+            results = await completion(
                 settings=settings,
                 request=dict(model=self.model, messages=messages, **kwargs),
                 num_retries=self.num_retries,
                 # only leverage LiteLLM cache in this case
                 cache={"no-cache": not cache, "no-store": not cache},
             )
+
+        if not getattr(results, "cache_hit", False) and dspy.settings.usage_tracker and hasattr(results, "usage"):
+            settings.usage_tracker.add_usage(self.model, dict(results.usage))
+        return results
 
     def launch(self, launch_kwargs: Optional[Dict[str, Any]] = None):
         self.provider.launch(self, launch_kwargs)
@@ -265,6 +270,12 @@ def request_cache(maxsize: Optional[int] = None):
                 # If the cache key cannot be computed (e.g. because it contains a value that cannot
                 # be converted to JSON), bypass the cache and call the target function directly
                 return await func(settings, request, *args, **kwargs)
+            cache_hit = key in func_cached.cache
+            output = await func_cached(key, settings, request, *args, **kwargs)
+            if cache_hit and hasattr(output, "usage"):
+                # Clear the usage data when cache is hit, because no LM call is made
+                output.usage = {}
+
             return await func_cached(key, settings, request, *args, **kwargs)
 
         return wrapper
@@ -285,6 +296,7 @@ async def cached_litellm_completion(settings: Settings, request: Dict[str, Any],
 async def litellm_completion(settings: Settings, request: Dict[str, Any], num_retries: int, cache={"no-cache": True, "no-store": True}):
     retry_kwargs = dict(
         retry_policy=_get_litellm_retry_policy(num_retries),
+        retry_strategy="exponential_backoff_retry",
         # In LiteLLM version 1.55.3 (the first version that supports retry_policy as an argument
         # to completion()), the default value of max_retries is non-zero for certain providers, and
         # max_retries is stacked on top of the retry_policy. To avoid this, we set max_retries=0

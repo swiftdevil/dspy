@@ -1,7 +1,6 @@
 import asyncio
 import threading
-
-from typing import Tuple, List, Any
+from typing import Any, List, Tuple
 
 from dspy.dsp.utils import Settings
 from dspy.primitives.example import Example

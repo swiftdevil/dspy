@@ -294,8 +294,12 @@ def with_callbacks(fn):
         call_id = uuid.uuid4().hex
 
         inputs = inspect.getcallargs(fn, instance, settings, *args, **kwargs)
-        inputs.pop("self")  # Not logging self as input
-        inputs.pop("settings")
+
+        # We don't include the instance information in the inpus
+        if "self" in inputs:
+            inputs.pop("self")
+        elif "instance" in inputs:
+            inputs.pop("instance")
 
         for callback in callbacks:
             try:

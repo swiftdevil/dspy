@@ -73,7 +73,7 @@ class ReAct(Module):
     def _format_trajectory(self, settings, trajectory: dict[str, Any]):
         adapter = settings.adapter or dspy.ChatAdapter()
         trajectory_signature = dspy.Signature(f"{', '.join(trajectory.keys())} -> x")
-        return adapter.format_fields(trajectory_signature, trajectory, role="user")
+        return adapter.format_user_message_content(trajectory_signature, trajectory)
 
     async def forward(self, settings, *args, **input_args):
         trajectory = {}
