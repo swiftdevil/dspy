@@ -7,7 +7,7 @@ from dspy.adapters.base import Adapter
 from dspy.adapters.chat_adapter import ChatAdapter
 from dspy.clients.lm import LM
 from dspy.clients.utils_finetune import infer_data_format
-from dspy.dsp.utils.settings import settings
+from dspy.dsp.utils.settings import settings, Settings
 from dspy.evaluate.evaluate import Evaluate
 from dspy.predict.predict import Predict
 from dspy.primitives.example import Example
@@ -263,11 +263,11 @@ def bootstrap_trace_data(
 # Note: Shared below are useful functions for preparing student/teacher programs
 # Similar methods are implemented separately and used by other DSPy
 # teleprompters. These can be moved to shared locations.
-def set_missing_predictor_lms(program: Program) -> Program:
+def set_missing_predictor_lms(settings: Settings, program: Program) -> Program:
     # If the predictors do not have LMs, set them to the global LM
     for pred in program.predictors():
         if not pred.lm:
-            pred.lm = dspy.settings.lm
+            pred.lm = settings.lm
 
     return program
 

@@ -18,7 +18,7 @@ def setup_knn_few_shot() -> KNNFewShot:
         mock_example("What is the largest ocean?", "Pacific"),
         mock_example("What is 2+2?", "4"),
     ]
-    return KNNFewShot(k=2, trainset=trainset, vectorizer=dspy.Embedder(DummyVectorizer()))
+    return KNNFewShot(settings=dspy.settings, k=2, trainset=trainset, vectorizer=dspy.Embedder(DummyVectorizer()))
 
 
 def test_knn_few_shot_initialization(setup_knn_few_shot):
@@ -42,7 +42,7 @@ class SimpleModule(dspy.Module):
 
 
 # TODO: Test not working yet
-def _test_knn_few_shot_compile(setup_knn_few_shot):
+async def _test_knn_few_shot_compile(setup_knn_few_shot):
     """Tests the compile method of KNNFewShot with SimpleModule as student."""
     student = SimpleModule("input -> output")
     teacher = SimpleModule("input -> output")  # Assuming teacher uses the same module type
@@ -59,7 +59,7 @@ def _test_knn_few_shot_compile(setup_knn_few_shot):
     assert compiled_student.predictor.demos[0].input == trainset[0].input
     assert compiled_student.predictor.demos[0].output == trainset[0].output
     # Simulate a query that is similar to one of the training examples
-    output = compiled_student.forward(input="What is the capital of Spain?").output
+    output = await (compiled_student.forward(settings=dspy.settings, input="What is the capital of Spain?")).output
 
     # Validate that the output corresponds to one of the expected DummyLM responses
     # This assumes the compiled_student's forward method will execute the predictor with the given query

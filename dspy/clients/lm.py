@@ -14,17 +14,15 @@ from anyio.streams.memory import MemoryObjectSendStream
 from asyncer import syncify
 from cachetools import LRUCache, cached
 from litellm import RetryPolicy
-from sqlalchemy.util import await_only
 
 import dspy
 from dspy.clients.openai import OpenAIProvider
 from dspy.clients.provider import Provider, TrainingJob
 from dspy.clients.utils_finetune import TrainDataFormat
-from dspy.dsp.utils.settings import settings
+from dspy.dsp.utils.settings import Settings
 from dspy.utils.callback import BaseCallback, with_callbacks
 
 from .base_lm import BaseLM
-from ..dsp.utils import Settings
 
 logger = logging.getLogger(__name__)
 

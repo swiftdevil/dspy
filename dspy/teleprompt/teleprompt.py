@@ -12,6 +12,7 @@ class Teleprompter:
         Optimize the student program.
 
         Args:
+            settings: The dspy settings object.
             student: The student program to optimize.
             trainset: The training set to use for optimization.
             teacher: The teacher program to use for optimization.
