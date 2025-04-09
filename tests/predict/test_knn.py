@@ -19,12 +19,11 @@ def setup_knn() -> KNN:
         mock_example("What is the largest ocean?", "Pacific"),
         mock_example("What is 2+2?", "4"),
     ]
-    return KNN(settings=dspy.settings, k=2, trainset=trainset, vectorizer=dspy.Embedder(DummyVectorizer()))
+    return KNN(k=2, trainset=trainset, vectorizer=dspy.Embedder(DummyVectorizer()))
 
-
-def test_knn_initialization(setup_knn):
+async def test_knn_initialization(setup_knn):
     """Tests the KNN initialization and checks if the trainset vectors are correctly created."""
-    knn = setup_knn
+    knn = await setup_knn.load_trainset_vectors(dspy.settings)
     assert knn.k == 2, "Incorrect k value"
     assert len(knn.trainset_vectors) == 3, "Incorrect size of trainset vectors"
     assert isinstance(knn.trainset_vectors, np.ndarray), "Trainset vectors should be a NumPy array"

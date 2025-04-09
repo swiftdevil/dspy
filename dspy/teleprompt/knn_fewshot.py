@@ -10,7 +10,7 @@ from ..dsp.utils import Settings
 
 
 class KNNFewShot(Teleprompter):
-    def __init__(self, settings: Settings, k: int, trainset: list[Example], vectorizer: Embedder, **few_shot_bootstrap_args):
+    def __init__(self, k: int, trainset: list[Example], vectorizer: Embedder, **few_shot_bootstrap_args):
         """
         KNNFewShot is an optimizer that uses an in-memory KNN retriever to find the k nearest neighbors
         in a trainset at test time. For each input example in a forward call, it identifies the k most
@@ -50,14 +50,14 @@ class KNNFewShot(Teleprompter):
             result = compiled_qa("What is the capital of Belgium?")
             ```
         """
-        self.KNN = KNN(settings, k, trainset, vectorizer=vectorizer)
+        self.KNN = KNN(k, trainset, vectorizer=vectorizer)
         self.few_shot_bootstrap_args = few_shot_bootstrap_args
 
     async def compile(self, settings, student, *, teacher=None):
         student_copy = student.reset_copy()
 
         async def forward_pass(_, **kwargs):
-            knn_trainset = self.KNN(**kwargs)
+            knn_trainset = await self.KNN(settings, **kwargs)
             few_shot_bootstrap = BootstrapFewShot(**self.few_shot_bootstrap_args)
             compiled_program = await few_shot_bootstrap.compile(
                 settings,
