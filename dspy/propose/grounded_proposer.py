@@ -1,3 +1,4 @@
+import asyncio
 import random
 
 import dspy
@@ -209,9 +210,9 @@ class GenerateModuleInstruction(dspy.Module):
         if self.program_aware:
             try:
                 program_description = strip_prefix(
-                    self.describe_program(
+                    (await self.describe_program(
                         program_code=self.program_code_string, program_example=task_demos,
-                    ).program_description,
+                    )).program_description,
                 )
                 if self.verbose:
                     print(f"PROGRAM DESCRIPTION: {program_description}")
@@ -230,13 +231,14 @@ class GenerateModuleInstruction(dspy.Module):
 
                 module_code = f"{program.predictors()[pred_i].__class__.__name__}({', '.join(inputs)}) -> {', '.join(outputs)}"
 
-                module_description = self.describe_module(
+                module_description = (await self.describe_module(
+                    settings=settings,
                     program_code=self.program_code_string,
                     program_description=program_description,
                     program_example=task_demos,
                     module=module_code,
                     max_depth=10,
-                ).module_description
+                )).module_description
             except:
                 if self.verbose:
                     print("Error getting program description. Running without program aware proposer.")
@@ -246,7 +248,8 @@ class GenerateModuleInstruction(dspy.Module):
         if self.verbose:
             print(f"task_demos {task_demos}")
 
-        instruct = self.generate_module_instruction(
+        instruct = await self.generate_module_instruction(
+            settings=settings,
             dataset_description=data_summary,
             program_code=self.program_code_string,
             module=module_code,
@@ -267,6 +270,7 @@ class GenerateModuleInstruction(dspy.Module):
 class GroundedProposer(Proposer):
     def __init__(
         self,
+        settings,
         prompt_model,
         program,
         trainset,
@@ -309,9 +313,9 @@ class GroundedProposer(Proposer):
         self.data_summary  = None
         if self.use_dataset_summary:
             try:
-                self.data_summary = create_dataset_summary(
-                    trainset=trainset, view_data_batch_size=view_data_batch_size, prompt_model=prompt_model,
-                )
+                self.data_summary = asyncio.get_event_loop().run_until_complete(create_dataset_summary(
+                    settings=settings, trainset=trainset, view_data_batch_size=view_data_batch_size, prompt_model=prompt_model,
+                ))
                 if self.verbose:
                     print(f"DATA SUMMARY: {self.data_summary}")
             except Exception as e:

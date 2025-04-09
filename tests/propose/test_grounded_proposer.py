@@ -12,15 +12,15 @@ from dspy.utils.dummies import DummyLM
         [[[dspy.Example(question="What is the capital of France?", answer="Paris")]]],
     ],
 )
-def test_propose_instructions_for_program(demo_candidates):
+async def test_propose_instructions_for_program(demo_candidates):
     # Set large numner here so that lm always returns the same response
     prompt_model = DummyLM([{"proposed_instruction": "instruction"}] * 10)
     program = Predict("question -> answer")
     trainset = []
 
     proposer = GroundedProposer(prompt_model=prompt_model, program=program, trainset=trainset, verbose=False)
-    result = proposer.propose_instructions_for_program(
-        trainset=trainset, program=program, demo_candidates=demo_candidates, trial_logs={}, N=1, T=0.5
+    result = await proposer.propose_instructions_for_program(
+        settings=dspy.settings, trainset=trainset, program=program, demo_candidates=demo_candidates, trial_logs={}, N=1, T=0.5
     )
     assert isinstance(result, dict)
     assert len(result) == len(program.predictors())
@@ -35,12 +35,13 @@ def test_propose_instructions_for_program(demo_candidates):
         [[[dspy.Example(question="What is the capital of France?", answer="Paris")]]],
     ],
 )
-def test_propose_instruction_for_predictor(demo_candidates):
+async def test_propose_instruction_for_predictor(demo_candidates):
     prompt_model = DummyLM([{"proposed_instruction": "instruction"}] * 10)
     program = Predict("question -> answer")
 
     proposer = GroundedProposer(prompt_model=prompt_model, program=program, trainset=[], verbose=False)
-    result = proposer.propose_instruction_for_predictor(
+    result = await proposer.propose_instruction_for_predictor(
+        settings=dspy.settings,
         program=program,
         predictor=None,
         pred_i=0,
