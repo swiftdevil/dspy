@@ -18,7 +18,8 @@ async def test_propose_instructions_for_program(demo_candidates):
     program = Predict("question -> answer")
     trainset = []
 
-    proposer = GroundedProposer(prompt_model=prompt_model, program=program, trainset=trainset, verbose=False)
+    proposer = GroundedProposer(prompt_model=prompt_model, program=program, verbose=False)
+    await proposer.load_dataset_summary(dspy.settings, trainset, prompt_model)
     result = await proposer.propose_instructions_for_program(
         settings=dspy.settings, trainset=trainset, program=program, demo_candidates=demo_candidates, trial_logs={}, N=1, T=0.5
     )
@@ -39,16 +40,18 @@ async def test_propose_instruction_for_predictor(demo_candidates):
     prompt_model = DummyLM([{"proposed_instruction": "instruction"}] * 10)
     program = Predict("question -> answer")
 
-    proposer = GroundedProposer(prompt_model=prompt_model, program=program, trainset=[], verbose=False)
-    result = await proposer.propose_instruction_for_predictor(
-        settings=dspy.settings,
-        program=program,
-        predictor=None,
-        pred_i=0,
-        T=0.5,
-        demo_candidates=demo_candidates,
-        demo_set_i=0,
-        trial_logs={},
-        tip=None,
-    )
+    with dspy.context() as settings:
+        proposer = GroundedProposer(prompt_model=prompt_model, program=program, verbose=False)
+        await proposer.load_dataset_summary(settings, [], prompt_model)
+        result = await proposer.propose_instruction_for_predictor(
+            settings=settings,
+            program=program,
+            predictor=None,
+            pred_i=0,
+            T=0.5,
+            demo_candidates=demo_candidates,
+            demo_set_i=0,
+            trial_logs={},
+            tip=None,
+        )
     assert result == "instruction"

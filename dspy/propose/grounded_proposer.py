@@ -1,4 +1,3 @@
-import asyncio
 import random
 
 import dspy
@@ -270,11 +269,8 @@ class GenerateModuleInstruction(dspy.Module):
 class GroundedProposer(Proposer):
     def __init__(
         self,
-        settings,
         prompt_model,
         program,
-        trainset,
-        view_data_batch_size=10,
         use_dataset_summary=True,
         program_aware=True,
         use_task_demos=True,
@@ -311,17 +307,26 @@ class GroundedProposer(Proposer):
                 self.program_aware = False
 
         self.data_summary  = None
-        if self.use_dataset_summary:
-            try:
-                self.data_summary = asyncio.get_event_loop().run_until_complete(create_dataset_summary(
-                    settings=settings, trainset=trainset, view_data_batch_size=view_data_batch_size, prompt_model=prompt_model,
-                ))
-                if self.verbose:
-                    print(f"DATA SUMMARY: {self.data_summary}")
-            except Exception as e:
-                print(f"Error getting data summary: {e}.\n\nRunning without data aware proposer.")
-                self.use_dataset_summary = False
-                print("")
+    
+    async def load_dataset_summary(
+        self,
+        settings,
+        trainset,
+        prompt_model,
+        view_data_batch_size=10
+    ):
+        try:
+            self.data_summary = (await create_dataset_summary(
+                settings=settings, trainset=trainset, view_data_batch_size=view_data_batch_size, prompt_model=prompt_model,
+            )).result()
+            if self.verbose:
+                print(f"DATA SUMMARY: {self.data_summary}")
+        except Exception as e:
+            print(f"Error getting data summary: {e}.\n\nRunning without data aware proposer.")
+            self.use_dataset_summary = False
+            print("")
+        
+        return self
 
     async def propose_instructions_for_program(
         self,

@@ -185,7 +185,8 @@ class MIPROv2(Teleprompter):
             demo_candidates = None
 
         # Step 3: Find optimal prompt parameters
-        best_program = self._optimize_prompt_parameters(
+        best_program = await self._optimize_prompt_parameters(
+            settings,
             program,
             instruction_candidates,
             demo_candidates,
@@ -412,11 +413,9 @@ class MIPROv2(Teleprompter):
             "We will use the few-shot examples from the previous step, a generated dataset summary, a summary of the program code, and a randomly selected prompting tip to propose instructions."
         )
 
-        proposer = GroundedProposer(
+        proposer = await GroundedProposer(
             program=program,
-            trainset=trainset,
             prompt_model=self.prompt_model,
-            view_data_batch_size=view_data_batch_size,
             program_aware=program_aware_proposer,
             use_dataset_summary=data_aware_proposer,
             use_task_demos=fewshot_aware_proposer,
@@ -427,7 +426,7 @@ class MIPROv2(Teleprompter):
             set_history_randomly=False,
             verbose=self.verbose,
             rng=self.rng,
-        )
+        ).load_dataset_summary(settings, trainset, view_data_batch_size, self.prompt_model)
 
         logger.info("\nProposing instructions...\n")
         instruction_candidates = await proposer.propose_instructions_for_program(
@@ -451,6 +450,7 @@ class MIPROv2(Teleprompter):
 
     async def _optimize_prompt_parameters(
         self,
+        settings: Settings,
         program: Any,
         instruction_candidates: Dict[int, List[str]],
         demo_candidates: Optional[List],
@@ -475,7 +475,7 @@ class MIPROv2(Teleprompter):
         logger.info(f"== Trial {1} / {adjusted_num_trials} - Full Evaluation of Default Program ==")
 
         default_score, _ = await eval_candidate_program(
-            len(valset), valset, program, evaluate, self.rng, return_all_scores=True
+            settings, len(valset), valset, program, evaluate, self.rng, return_all_scores=True
         )
         logger.info(f"Default program score: {default_score}\n")
 
@@ -495,8 +495,8 @@ class MIPROv2(Teleprompter):
         fully_evaled_param_combos = {}
 
         # Define the objective function
-        def objective(trial):
-            nonlocal program, best_program, best_score, trial_logs, total_eval_calls, score_data
+        async def objective(trial):
+            nonlocal settings, program, best_program, best_score, trial_logs, total_eval_calls, score_data
 
             trial_num = trial.number + 1
             if minibatch:
@@ -526,7 +526,7 @@ class MIPROv2(Teleprompter):
 
             # Evaluate the candidate program (on minibatch if minibatch=True)
             batch_size = minibatch_size if minibatch else len(valset)
-            score = eval_candidate_program(batch_size, valset, candidate_program, evaluate, self.rng)
+            score = await eval_candidate_program(settings, batch_size, valset, candidate_program, evaluate, self.rng)
             total_eval_calls += batch_size
 
             # Update best score and program
