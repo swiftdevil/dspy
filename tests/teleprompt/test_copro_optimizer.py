@@ -5,7 +5,7 @@ from dspy.utils.dummies import DummyLM
 
 
 # Define a simple metric function for testing
-def simple_metric(example, prediction):
+async def simple_metric(settings, example, prediction):
     # Simplified metric for testing: true if prediction matches expected output
     return example.output == prediction.output
 
@@ -19,7 +19,7 @@ trainset = [
 ]
 
 
-def test_signature_optimizer_initialization():
+async def test_signature_optimizer_initialization():
     optimizer = COPRO(metric=simple_metric, breadth=2, depth=1, init_temperature=1.4)
     assert optimizer.metric == simple_metric, "Metric not correctly initialized"
     assert optimizer.breadth == 2, "Breadth not correctly initialized"
@@ -33,11 +33,11 @@ class SimpleModule(dspy.Module):
         # COPRO doesn't work with dspy.Predict
         self.predictor = dspy.ChainOfThought(signature)
 
-    def forward(self, **kwargs):
-        return self.predictor(**kwargs)
+    async def forward(self, settings, *args, **kwargs):
+        return await self.predictor(settings, *args, **kwargs)
 
 
-def test_signature_optimizer_optimization_process():
+async def test_signature_optimizer_optimization_process():
     optimizer = COPRO(metric=simple_metric, breadth=2, depth=1, init_temperature=1.4)
     dspy.settings.configure(
         lm=DummyLM(
@@ -53,8 +53,8 @@ def test_signature_optimizer_optimization_process():
     student = SimpleModule("input -> output")
 
     # Assuming the compile method of COPRO requires a student module, a development set, and evaluation kwargs
-    optimized_student = optimizer.compile(
-        student, trainset=trainset, eval_kwargs={"num_threads": 1, "display_progress": False}
+    optimized_student = await optimizer.compile(
+        dspy.settings, student, trainset=trainset, eval_kwargs={"num_threads": 1, "display_progress": False}
     )
 
     # Check that the optimized student has been modified from the original
@@ -65,7 +65,7 @@ def test_signature_optimizer_optimization_process():
     # such as checking the instructions of the optimized student's predictors.
 
 
-def test_signature_optimizer_statistics_tracking():
+async def test_signature_optimizer_statistics_tracking():
     optimizer = COPRO(metric=simple_metric, breadth=2, depth=1, init_temperature=1.4)
     optimizer.track_stats = True  # Enable statistics tracking
 
@@ -80,8 +80,8 @@ def test_signature_optimizer_statistics_tracking():
         )
     )
     student = SimpleModule("input -> output")
-    optimized_student = optimizer.compile(
-        student, trainset=trainset, eval_kwargs={"num_threads": 1, "display_progress": False}
+    optimized_student = await optimizer.compile(
+        dspy.settings, student, trainset=trainset, eval_kwargs={"num_threads": 1, "display_progress": False}
     )
 
     # Verify that statistics have been tracked and attached to the optimized student
@@ -92,7 +92,7 @@ def test_signature_optimizer_statistics_tracking():
 # Assuming the setup_signature_optimizer fixture and simple_metric function are defined as before
 
 
-def test_optimization_and_output_verification():
+async def test_optimization_and_output_verification():
     lm = DummyLM(
         [
             {"proposed_instruction": "Optimized Prompt", "proposed_prefix_for_output_field": "Optimized Prefix"},
@@ -111,20 +111,20 @@ def test_optimization_and_output_verification():
     student = SimpleModule("input -> output")
 
     # Compile the student with the optimizer
-    optimized_student = optimizer.compile(
-        student, trainset=trainset, eval_kwargs={"num_threads": 1, "display_progress": False}
+    optimized_student = await optimizer.compile(
+        dspy.settings, student, trainset=trainset, eval_kwargs={"num_threads": 1, "display_progress": False}
     )
 
     # Simulate calling the optimized student with a new input
     test_input = "What is the capital of France?"
-    prediction = optimized_student(input=test_input)
+    prediction = await optimized_student(dspy.settings, input=test_input)
 
     print(lm.get_convo(-1))
 
     assert prediction.output == "Paris"
 
 
-def test_statistics_tracking_during_optimization():
+async def test_statistics_tracking_during_optimization():
     dspy.settings.configure(
         lm=DummyLM(
             [
@@ -137,8 +137,8 @@ def test_statistics_tracking_during_optimization():
     optimizer.track_stats = True  # Enable statistics tracking
 
     student = SimpleModule("input -> output")
-    optimized_student = optimizer.compile(
-        student, trainset=trainset, eval_kwargs={"num_threads": 1, "display_progress": False}
+    optimized_student = await optimizer.compile(
+        dspy.settings, student, trainset=trainset, eval_kwargs={"num_threads": 1, "display_progress": False}
     )
 
     # Verify that statistics have been tracked

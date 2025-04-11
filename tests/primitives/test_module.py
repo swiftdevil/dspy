@@ -68,7 +68,7 @@ def test_save_and_load_with_json(tmp_path):
     assert new_model.predict.demos[0] == model.predict.demos[0].toDict()
 
 
-def test_save_and_load_with_pkl(tmp_path):
+async def test_save_and_load_with_pkl(tmp_path):
     import datetime
 
     # `datetime.date` is not json serializable, so we need to save with pickle.
@@ -93,13 +93,13 @@ def test_save_and_load_with_pkl(tmp_path):
     )
 
     cot = dspy.ChainOfThought(MySignature)
-    cot(current_date=datetime.date(2024, 1, 1), target_date=datetime.date(2024, 1, 2))
+    await cot(dspy.settings, current_date=datetime.date(2024, 1, 1), target_date=datetime.date(2024, 1, 2))
 
-    def dummy_metric(example, pred, trace=None):
+    async def dummy_metric(settings, example, pred, trace=None):
         return True
 
     optimizer = dspy.BootstrapFewShot(max_bootstrapped_demos=4, max_labeled_demos=4, max_rounds=5, metric=dummy_metric)
-    compiled_cot = optimizer.compile(cot, trainset=trainset)
+    compiled_cot = await optimizer.compile(dspy.settings, cot, trainset=trainset)
     compiled_cot.predict.signature = compiled_cot.predict.signature.with_instructions("You are a helpful assistant.")
 
     save_path = tmp_path / "program.pkl"

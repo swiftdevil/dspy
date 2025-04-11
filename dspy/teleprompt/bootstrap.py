@@ -75,12 +75,12 @@ class BootstrapFewShot(Teleprompter):
         self.error_count = 0
         self.error_lock = threading.Lock()
 
-    def compile(self, student, *, teacher=None, trainset):
+    async def compile(self, settings, student, *, teacher=None, trainset):
         self.trainset = trainset
 
-        self._prepare_student_and_teacher(student, teacher)
+        await self._prepare_student_and_teacher(settings, student, teacher)
         self._prepare_predictor_mappings()
-        self._bootstrap()
+        await self._bootstrap(settings)
 
         self.student = self._train()
         self.student._compiled = True
@@ -91,7 +91,7 @@ class BootstrapFewShot(Teleprompter):
 
         return self.student
 
-    def _prepare_student_and_teacher(self, student, teacher):
+    async def _prepare_student_and_teacher(self, settings, student, teacher):
         self.student = student.reset_copy()
 
         # NOTE: behavior change on Oct 28, 2024. Deep copy instead of reset copy for the student-as-teacher.
@@ -101,7 +101,7 @@ class BootstrapFewShot(Teleprompter):
 
         if self.max_labeled_demos and getattr(self.teacher, "_compiled", False) is False:
             teleprompter = LabeledFewShot(k=self.max_labeled_demos)
-            self.teacher = teleprompter.compile(self.teacher.reset_copy(), trainset=self.trainset)
+            self.teacher = await teleprompter.compile(settings, self.teacher.reset_copy(), trainset=self.trainset)
 
     def _prepare_predictor_mappings(self):
         name2predictor, predictor2name = {}, {}
@@ -141,7 +141,7 @@ class BootstrapFewShot(Teleprompter):
         self.name2predictor = name2predictor
         self.predictor2name = predictor2name
 
-    def _bootstrap(self, *, max_bootstraps=None):
+    async def _bootstrap(self, settings, *, max_bootstraps=None):
         max_bootstraps = max_bootstraps or self.max_bootstrapped_demos
         bootstrap_attempts = 0
 
@@ -155,7 +155,7 @@ class BootstrapFewShot(Teleprompter):
             for round_idx in range(self.max_rounds):
                 bootstrap_attempts += 1
 
-                if self._bootstrap_one_example(example, round_idx):
+                if await self._bootstrap_one_example(settings, example, round_idx):
                     bootstrapped[example_idx] = True
                     break
 
@@ -175,30 +175,30 @@ class BootstrapFewShot(Teleprompter):
         # evaluate = Evaluate(program=self.teacher, metric=self.metric, num_threads=12)
         # score = evaluate(self.metric, display_table=False, display_progress=True)
 
-    def _bootstrap_one_example(self, example, round_idx=0):
+    async def _bootstrap_one_example(self, settings, example, round_idx=0):
         name2traces = {}
         teacher = self.teacher
         predictor_cache = {}
 
         try:
-            with dspy.settings.context(trace=[], **self.teacher_settings):
-                lm = dspy.settings.lm
+            with settings.context(trace=[], **self.teacher_settings) as teacher_settings:
+                lm = settings.lm
                 lm = lm.copy(temperature=0.7 + 0.001 * round_idx) if round_idx > 0 else lm
                 new_settings = dict(lm=lm) if round_idx > 0 else {}
 
-                with dspy.settings.context(**new_settings):
+                with teacher_settings.context(**new_settings) as prompt_settings:
                     for name, predictor in teacher.named_predictors():
                         predictor_cache[name] = predictor.demos
                         predictor.demos = [x for x in predictor.demos if x != example]
 
-                    prediction = teacher(**example.inputs())
-                    trace = dspy.settings.trace
+                    prediction = await teacher(prompt_settings, **example.inputs())
+                    trace = settings.trace
 
                     for name, predictor in teacher.named_predictors():
                         predictor.demos = predictor_cache[name]
 
                 if self.metric:
-                    metric_val = self.metric(example, prediction, trace)
+                    metric_val = await self.metric(teacher_settings, example, prediction, trace)
                     if self.metric_threshold:
                         success = metric_val >= self.metric_threshold
                     else:

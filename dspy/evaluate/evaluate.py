@@ -9,6 +9,8 @@ import tqdm
 
 import dspy
 from dspy.utils.callback import with_callbacks
+from dspy import Parallel
+from dspy.dsp.utils import Settings
 from dspy.utils.parallelizer import ParallelExecutor
 
 try:
@@ -88,8 +90,9 @@ class Evaluate:
         self.failure_score = failure_score
 
     @with_callbacks
-    def __call__(
+    async def __call__(
         self,
+        settings: Settings,
         program: "dspy.Module",
         metric: Optional[Callable] = None,
         devset: Optional[List["dspy.Example"]] = None,
@@ -147,27 +150,26 @@ class Evaluate:
 
         tqdm.tqdm._instances.clear()
 
-        executor = ParallelExecutor(
+        executor = Parallel(
             num_threads=num_threads,
             disable_progress_bar=not display_progress,
             max_errors=self.max_errors,
             provide_traceback=self.provide_traceback,
-            compare_results=True,
         )
 
-        def process_item(example):
-            prediction = program(**example.inputs())
-            score = metric(example, prediction)
+        async def process_item(settings, example):
+            prediction = await program(settings, **example.inputs())
+            score = await metric(settings, example, prediction)
 
             # Increment assert and suggest failures to program's attributes
             if hasattr(program, "_assert_failures"):
-                program._assert_failures += dspy.settings.get("assert_failures")
+                program._assert_failures += settings.get("assert_failures")
             if hasattr(program, "_suggest_failures"):
-                program._suggest_failures += dspy.settings.get("suggest_failures")
+                program._suggest_failures += settings.get("suggest_failures")
 
             return prediction, score
 
-        results = executor.execute(process_item, devset)
+        results = await executor(settings, [(process_item, example) for example in devset])
         assert len(devset) == len(results)
 
         results = [((dspy.Prediction(), self.failure_score) if r is None else r) for r in results]

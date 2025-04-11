@@ -16,7 +16,7 @@ class BasicQA(Signature):
 
 
 @pytest.mark.skipif(not is_deno_available, reason="Deno is not installed or not in PATH")
-def test_pot_code_generation():
+async def test_pot_code_generation():
     lm = DummyLM(
         [
             {
@@ -35,16 +35,16 @@ def test_pot_code_generation():
 
 # This test ensures the old finetuned saved models still work
 @pytest.mark.skipif(not is_deno_available, reason="Deno is not installed or not in PATH")
-def test_old_style_pot():
+async def test_old_style_pot():
     lm = DummyLM(
         [
             {"reasoning": "Reason_A", "generated_code": "```python\nresult = 1+1\n```"},
             {"reasoning": "Reason_B", "answer": "2"},
         ]
     )
-    dspy.settings.configure(lm=lm)
-    pot = ProgramOfThought(BasicQA)
-    res = pot(question="What is 1+1?")
+    with dspy.context(lm=lm) as settings:
+        pot = ProgramOfThought(BasicQA)
+        res = await pot(settings, question="What is 1+1?")
     assert res.answer == "2"
     assert pot.interpreter.deno_process is None
 
@@ -56,7 +56,7 @@ class ExtremumFinder(Signature):
 
 
 @pytest.mark.skipif(not is_deno_available, reason="Deno is not installed or not in PATH")
-def test_pot_support_multiple_fields():
+async def test_pot_support_multiple_fields():
     lm = DummyLM(
         [
             {
@@ -68,14 +68,14 @@ def test_pot_support_multiple_fields():
     )
     dspy.settings.configure(lm=lm)
     pot = ProgramOfThought(ExtremumFinder)
-    res = pot(input_list="2, 3, 5, 6")
+    res = await pot(dspy.settings, input_list="2, 3, 5, 6")
     assert res.maximum == "6"
     assert res.minimum == "2"
     assert pot.interpreter.deno_process is None
 
 
 @pytest.mark.skipif(not is_deno_available, reason="Deno is not installed or not in PATH")
-def test_pot_code_generation_with_one_error():
+async def test_pot_code_generation_with_one_error():
     lm = DummyLM(
         [
             {
@@ -91,13 +91,13 @@ def test_pot_code_generation_with_one_error():
     )
     dspy.settings.configure(lm=lm)
     pot = ProgramOfThought(BasicQA)
-    res = pot(question="What is 1+1?")
+    res = await pot(dspy.settings, question="What is 1+1?")
     assert res.answer == "2"
     assert pot.interpreter.deno_process is None
 
 
 @pytest.mark.skipif(not is_deno_available, reason="Deno is not installed or not in PATH")
-def test_pot_code_generation_persistent_errors():
+async def test_pot_code_generation_persistent_errors():
     max_iters = 3
     lm = DummyLM(
         [
@@ -112,11 +112,11 @@ def test_pot_code_generation_persistent_errors():
 
     pot = ProgramOfThought(BasicQA, max_iters=max_iters)
     with pytest.raises(RuntimeError, match="Max hops reached. Failed to run ProgramOfThought: ZeroDivisionError:"):
-        pot(question="What is 1+1?")
+        await pot(dspy.settings, question="What is 1+1?")
         assert pot.interpreter.deno_process is None
 
 
-def test_pot_code_parse_error():
+async def test_pot_code_parse_error():
     max_iters = 3
     lm = DummyLM(
         [
@@ -132,5 +132,5 @@ def test_pot_code_parse_error():
             RuntimeError, match="Max hops reached. Failed to run ProgramOfThought: Error: Code format is not correct."
         ),
     ):
-        pot(question="What is 1+1?")
+        await pot(dspy.settings, question="What is 1+1?")
     mock_execute_code.assert_not_called()

@@ -158,8 +158,9 @@ class GenerateModuleInstruction(dspy.Module):
             use_tip=use_tip,
         )
 
-    def forward(
+    async def forward(
         self,
+        settings,
         demo_candidates,
         pred_i,
         demo_set_i,
@@ -208,9 +209,9 @@ class GenerateModuleInstruction(dspy.Module):
         if self.program_aware:
             try:
                 program_description = strip_prefix(
-                    self.describe_program(
+                    (await self.describe_program(
                         program_code=self.program_code_string, program_example=task_demos,
-                    ).program_description,
+                    )).program_description,
                 )
                 if self.verbose:
                     print(f"PROGRAM DESCRIPTION: {program_description}")
@@ -229,13 +230,14 @@ class GenerateModuleInstruction(dspy.Module):
 
                 module_code = f"{program.predictors()[pred_i].__class__.__name__}({', '.join(inputs)}) -> {', '.join(outputs)}"
 
-                module_description = self.describe_module(
+                module_description = (await self.describe_module(
+                    settings=settings,
                     program_code=self.program_code_string,
                     program_description=program_description,
                     program_example=task_demos,
                     module=module_code,
                     max_depth=10,
-                ).module_description
+                )).module_description
             except:
                 if self.verbose:
                     print("Error getting program description. Running without program aware proposer.")
@@ -245,7 +247,8 @@ class GenerateModuleInstruction(dspy.Module):
         if self.verbose:
             print(f"task_demos {task_demos}")
 
-        instruct = self.generate_module_instruction(
+        instruct = await self.generate_module_instruction(
+            settings=settings,
             dataset_description=data_summary,
             program_code=self.program_code_string,
             module=module_code,
@@ -268,8 +271,6 @@ class GroundedProposer(Proposer):
         self,
         prompt_model,
         program,
-        trainset,
-        view_data_batch_size=10,
         use_dataset_summary=True,
         program_aware=True,
         use_task_demos=True,
@@ -306,20 +307,30 @@ class GroundedProposer(Proposer):
                 self.program_aware = False
 
         self.data_summary  = None
-        if self.use_dataset_summary:
-            try:
-                self.data_summary = create_dataset_summary(
-                    trainset=trainset, view_data_batch_size=view_data_batch_size, prompt_model=prompt_model,
-                )
-                if self.verbose:
-                    print(f"DATA SUMMARY: {self.data_summary}")
-            except Exception as e:
-                print(f"Error getting data summary: {e}.\n\nRunning without data aware proposer.")
-                self.use_dataset_summary = False
-                print("")
-
-    def propose_instructions_for_program(
+    
+    async def load_dataset_summary(
         self,
+        settings,
+        trainset,
+        prompt_model,
+        view_data_batch_size=10
+    ):
+        try:
+            self.data_summary = (await create_dataset_summary(
+                settings=settings, trainset=trainset, view_data_batch_size=view_data_batch_size, prompt_model=prompt_model,
+            )).result()
+            if self.verbose:
+                print(f"DATA SUMMARY: {self.data_summary}")
+        except Exception as e:
+            print(f"Error getting data summary: {e}.\n\nRunning without data aware proposer.")
+            self.use_dataset_summary = False
+            print("")
+        
+        return self
+
+    async def propose_instructions_for_program(
+        self,
+        settings,
         trainset,
         program,
         demo_candidates,
@@ -366,7 +377,8 @@ class GroundedProposer(Proposer):
                         print(f"Selected tip: {selected_tip_key}")
 
                 proposed_instructions[pred_i].append(
-                    self.propose_instruction_for_predictor(
+                    await self.propose_instruction_for_predictor(
+                        settings=settings,
                         program=program,
                         predictor=predictor,
                         pred_i=pred_i,
@@ -380,8 +392,9 @@ class GroundedProposer(Proposer):
         
         return proposed_instructions
 
-    def propose_instruction_for_predictor(
+    async def propose_instruction_for_predictor(
         self,
+        settings,
         program,
         predictor,
         pred_i,
@@ -415,9 +428,10 @@ class GroundedProposer(Proposer):
         epsilon = self.rng.uniform(0.01, 0.05)
         modified_temp = T + epsilon
 
-        with dspy.settings.context(lm=self.prompt_model):
+        with settings.context(lm=self.prompt_model) as prompt_context:
             self.prompt_model.kwargs["temperature"] = modified_temp
-            proposed_instruction = instruction_generator.forward(
+            proposed_instruction = (await instruction_generator.forward(
+                settings=prompt_context,
                 demo_candidates=demo_candidates,
                 pred_i=pred_i,
                 demo_set_i=demo_set_i,
@@ -426,7 +440,7 @@ class GroundedProposer(Proposer):
                 previous_instructions=instruction_history,
                 num_demos_in_context = self.num_demos_in_context,
                 tip=tip,
-            ).proposed_instruction
+            )).proposed_instruction
         self.prompt_model.kwargs["temperature"] = original_temp
 
         # Log the trace used to generate the new instruction, along with the new instruction itself

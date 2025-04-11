@@ -14,6 +14,7 @@ from dspy.adapters.utils import (
     translate_field_type,
 )
 from dspy.clients.lm import LM
+from dspy.dsp.utils import Settings
 from dspy.signatures.signature import Signature
 from dspy.utils.callback import BaseCallback
 
@@ -29,8 +30,9 @@ class ChatAdapter(Adapter):
     def __init__(self, callbacks: Optional[list[BaseCallback]] = None):
         super().__init__(callbacks)
 
-    def __call__(
+    async def __call__(
         self,
+        settings: Settings,
         lm: LM,
         lm_kwargs: dict[str, Any],
         signature: Type[Signature],
@@ -38,7 +40,7 @@ class ChatAdapter(Adapter):
         inputs: dict[str, Any],
     ) -> list[dict[str, Any]]:
         try:
-            return super().__call__(lm, lm_kwargs, signature, demos, inputs)
+            return await super().__call__(settings, lm, lm_kwargs, signature, demos, inputs)
         except Exception as e:
             # fallback to JSONAdapter
             from dspy.adapters.json_adapter import JSONAdapter
@@ -47,7 +49,7 @@ class ChatAdapter(Adapter):
                 # On context window exceeded error or already using JSONAdapter, we don't want to retry with a different
                 # adapter.
                 raise e
-            return JSONAdapter()(lm, lm_kwargs, signature, demos, inputs)
+            return await JSONAdapter()(settings, lm, lm_kwargs, signature, demos, inputs)
 
     def format_field_description(self, signature: Type[Signature]) -> str:
         return (
@@ -147,7 +149,7 @@ class ChatAdapter(Adapter):
             },
         )
 
-    def parse(self, signature: Type[Signature], completion: str) -> dict[str, Any]:
+    async def parse(self, settings: Settings, signature: Type[Signature], completion: str) -> dict[str, Any]:
         sections = [(None, [])]
 
         for line in completion.splitlines():

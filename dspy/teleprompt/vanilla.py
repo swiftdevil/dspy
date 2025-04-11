@@ -7,7 +7,7 @@ class LabeledFewShot(Teleprompter):
     def __init__(self, k=16):
         self.k = k
 
-    def compile(self, student, *, trainset, sample=True):
+    async def compile(self, settings, student, *, trainset, sample=True):
         self.student = student.reset_copy()
         self.trainset = trainset
 

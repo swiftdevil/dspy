@@ -11,13 +11,9 @@ LITELLM_TEST_SERVER_LOG_FILE_PATH_ENV_VAR = "LITELLM_TEST_SERVER_LOG_FILE_PATH"
 
 
 class DSPyTestModel(CustomLLM):
-    def completion(self, *args, **kwargs) -> litellm.ModelResponse:
-        _append_request_to_log_file(kwargs)
-        return _get_mock_llm_response(kwargs)
-
     async def acompletion(self, *args, **kwargs) -> litellm.ModelResponse:
         _append_request_to_log_file(kwargs)
-        return _get_mock_llm_response(kwargs)
+        return await _get_mock_llm_response(kwargs)
 
     def streaming(self, *args, **kwargs) -> Iterator[GenericStreamingChunk]:
         generic_streaming_chunk: GenericStreamingChunk = {
@@ -42,9 +38,9 @@ class DSPyTestModel(CustomLLM):
         yield generic_streaming_chunk
 
 
-def _get_mock_llm_response(request_kwargs):
+async def _get_mock_llm_response(request_kwargs):
     _throw_exception_based_on_content_if_applicable(request_kwargs)
-    return litellm.completion(
+    return await litellm.acompletion(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "Hello world"}],
         mock_response="Hi!",

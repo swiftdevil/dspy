@@ -17,6 +17,7 @@ from dspy.adapters.utils import (
 )
 from dspy.signatures.signature import Signature, SignatureMeta
 from dspy.adapters.chat_adapter import ChatAdapter, FieldInfoWithName
+from dspy.dsp.utils import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +36,9 @@ def _has_open_ended_mapping(signature: SignatureMeta) -> bool:
 
 
 class JSONAdapter(ChatAdapter):
-    def __call__(
+    async def __call__(
         self,
+        settings: Settings,
         lm: LM,
         lm_kwargs: dict[str, Any],
         signature: Type[Signature],
@@ -48,23 +50,23 @@ class JSONAdapter(ChatAdapter):
 
         # If response_format is not supported, use basic call.
         if not params or "response_format" not in params:
-            return super().__call__(lm, lm_kwargs, signature, demos, inputs)
+            return await super().__call__(settings, lm, lm_kwargs, signature, demos, inputs)
 
         # Check early for open-ended mapping types before trying structured outputs.
         if _has_open_ended_mapping(signature):
             lm_kwargs["response_format"] = {"type": "json_object"}
-            return super().__call__(lm, lm_kwargs, signature, demos, inputs)
+            return await super().__call__(settings, lm, lm_kwargs, signature, demos, inputs)
 
         # Try structured output first, fall back to basic JSON if it fails.
         try:
             structured_output_model = _get_structured_outputs_response_format(signature)
             lm_kwargs["response_format"] = structured_output_model
-            return super().__call__(lm, lm_kwargs, signature, demos, inputs)
+            return await super().__call__(settings, lm, lm_kwargs, signature, demos, inputs)
         except Exception as e:
             logger.warning(f"Failed to use structured output format. Falling back to JSON mode. Error: {e}")
             try:
                 lm_kwargs["response_format"] = {"type": "json_object"}
-                return super().__call__(lm, lm_kwargs, signature, demos, inputs)
+                return await super().__call__(settings, lm, lm_kwargs, signature, demos, inputs)
             except Exception as e:
                 raise RuntimeError(
                     "Both structured output format and JSON mode failed. Please choose a model that supports "
@@ -114,7 +116,7 @@ class JSONAdapter(ChatAdapter):
         }
         return self.format_field_with_value(fields_with_values, role="assistant")
 
-    def parse(self, signature: Type[Signature], completion: str) -> dict[str, Any]:
+    async def parse(self, settings: Settings, signature: Type[Signature], completion: str) -> dict[str, Any]:
         fields = json_repair.loads(completion)
         fields = {k: v for k, v in fields.items() if k in signature.output_fields}
 

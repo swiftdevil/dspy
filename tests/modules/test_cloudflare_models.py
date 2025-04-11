@@ -40,7 +40,7 @@ def get_lm(name: str): # -> dspy.LM:
     return dspy.CloudflareAI(model=name)
 
 
-def run_tests():
+async def run_tests():
     """Test the providers and models"""
     # Configure your AWS credentials with the AWS CLI before running this script
     models
@@ -50,7 +50,8 @@ def run_tests():
         lm = get_lm(model_name)
         with dspy.context(lm=lm):
             question = "What is the capital of France?"
-            answer = predict_func(question=question).answer
+            answer = await predict_func(question=question)
+            answer = answer.answer
             print(f"Question: {question}\nAnswer: {answer}")
             print("---------------------------------")
             lm.inspect_history()

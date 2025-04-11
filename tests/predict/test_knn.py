@@ -21,28 +21,27 @@ def setup_knn() -> KNN:
     ]
     return KNN(k=2, trainset=trainset, vectorizer=dspy.Embedder(DummyVectorizer()))
 
-
-def test_knn_initialization(setup_knn):
+async def test_knn_initialization(setup_knn):
     """Tests the KNN initialization and checks if the trainset vectors are correctly created."""
-    knn = setup_knn
+    knn = await setup_knn.load_trainset_vectors(dspy.settings)
     assert knn.k == 2, "Incorrect k value"
     assert len(knn.trainset_vectors) == 3, "Incorrect size of trainset vectors"
     assert isinstance(knn.trainset_vectors, np.ndarray), "Trainset vectors should be a NumPy array"
 
 
-def test_knn_query(setup_knn):
+async def test_knn_query(setup_knn):
     """Tests the KNN query functionality for retrieving the nearest neighbors."""
     knn = setup_knn
     query = {"question": "What is 3+3?"}  # A query close to "What is 2+2?"
-    nearest_samples = knn(**query)
+    nearest_samples = await knn(dspy.settings, **query)
     assert len(nearest_samples) == 2, "Incorrect number of nearest samples returned"
     assert nearest_samples[0].answer == "4", "Incorrect nearest sample returned"
 
 
-def test_knn_query_specificity(setup_knn):
+async def test_knn_query_specificity(setup_knn):
     """Tests the KNN query functionality for specificity of returned examples."""
     knn = setup_knn
     query = {"question": "What is the capital of Germany?"}  # A query close to "What is the capital of France?"
-    nearest_samples = knn(**query)
+    nearest_samples = await knn(dspy.settings, **query)
     assert len(nearest_samples) == 2, "Incorrect number of nearest samples returned"
     assert "Paris" in [sample.answer for sample in nearest_samples], "Expected Paris to be a nearest sample answer"

@@ -6,12 +6,12 @@ build-backend = "setuptools.build_meta"
 # Do not add spaces around the '=' sign for any of the fields
 # preceded by a marker comment as it affects the publish workflow.
 #replace_package_name_marker
-name="dspy"
+name="dspy-async"
 #replace_package_version_marker
 version="2.6.17"
 description = "DSPy"
 readme = "README.md"
-authors = [{ name = "Omar Khattab", email = "okhattab@stanford.edu" }]
+authors = [{ name = "Omar Khattab", email = "okhattab@stanford.edu" }, { name = "Will Swift", email = "will@afterdarkstudio.dev"}]
 license = { text = "MIT License" }
 requires-python = ">=3.9, <3.13"
 classifiers = [
@@ -261,3 +261,7 @@ line-ending = "auto"
 [tool.ruff.lint.per-file-ignores]
 "**/{tests,testing,docs}/*" = ["ALL"]
 "**__init__.py" = ["ALL"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

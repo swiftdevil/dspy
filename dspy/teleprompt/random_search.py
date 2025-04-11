@@ -53,7 +53,7 @@ class BootstrapFewShotWithRandomSearch(Teleprompter):
         print(f"Going to sample between {self.min_num_samples} and {self.max_num_samples} traces per predictor.")
         print(f"Will attempt to bootstrap {self.num_candidate_sets} candidate sets.")
 
-    def compile(self, student, *, teacher=None, trainset, valset=None, restrict=None, labeled_sample=True):
+    async def compile(self, settings, student, *, teacher=None, trainset, valset=None, restrict=None, labeled_sample=True):
         self.trainset = trainset
         self.valset = valset or trainset  # TODO: FIXME: Note this choice.
 
@@ -74,7 +74,7 @@ class BootstrapFewShotWithRandomSearch(Teleprompter):
             elif seed == -2:
                 # labels only
                 teleprompter = LabeledFewShot(k=self.max_labeled_demos)
-                program = teleprompter.compile(student, trainset=trainset_copy, sample=labeled_sample)
+                program = await teleprompter.compile(settings, student, trainset=trainset_copy, sample=labeled_sample)
 
             elif seed == -1:
                 # unshuffled few-shot
@@ -87,7 +87,7 @@ class BootstrapFewShotWithRandomSearch(Teleprompter):
                     max_rounds=self.max_rounds,
                     max_errors=self.max_errors,
                 )
-                program = optimizer.compile(student, teacher=teacher, trainset=trainset_copy)
+                program = await optimizer.compile(settings, student, teacher=teacher, trainset=trainset_copy)
 
             else:
                 assert seed >= 0, seed
@@ -105,7 +105,7 @@ class BootstrapFewShotWithRandomSearch(Teleprompter):
                     max_errors=self.max_errors,
                 )
 
-                program = optimizer.compile(student, teacher=teacher, trainset=trainset_copy)
+                program = await optimizer.compile(settings, student, teacher=teacher, trainset=trainset_copy)
 
             evaluate = Evaluate(
                 devset=self.valset,
@@ -116,7 +116,7 @@ class BootstrapFewShotWithRandomSearch(Teleprompter):
                 display_progress=True,
             )
 
-            score, subscores = evaluate(program, return_all_scores=True)
+            score, subscores = await evaluate(settings, program, return_all_scores=True)
 
             all_subscores.append(subscores)
 

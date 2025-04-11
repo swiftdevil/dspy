@@ -9,6 +9,7 @@ import optuna
 from optuna.distributions import CategoricalDistribution
 
 import dspy
+from dspy.dsp.utils import Settings
 from dspy.evaluate.evaluate import Evaluate
 from dspy.propose import GroundedProposer
 from dspy.teleprompt.teleprompt import Teleprompter
@@ -89,8 +90,9 @@ class MIPROv2(Teleprompter):
         self.seed = seed
         self.rng = None
 
-    def compile(
+    async def compile(
         self,
+        settings: Settings,
         student: Any,
         *,
         trainset: List,
@@ -163,10 +165,11 @@ class MIPROv2(Teleprompter):
         )
 
         # Step 1: Bootstrap few-shot examples
-        demo_candidates = self._bootstrap_fewshot_examples(program, trainset, seed, teacher)
+        demo_candidates = await self._bootstrap_fewshot_examples(settings, program, trainset, seed, teacher)
 
         # Step 2: Propose instruction candidates
-        instruction_candidates = self._propose_instructions(
+        instruction_candidates = await self._propose_instructions(
+            settings,
             program,
             trainset,
             demo_candidates,
@@ -182,7 +185,8 @@ class MIPROv2(Teleprompter):
             demo_candidates = None
 
         # Step 3: Find optimal prompt parameters
-        best_program = self._optimize_prompt_parameters(
+        best_program = await self._optimize_prompt_parameters(
+            settings,
             program,
             instruction_candidates,
             demo_candidates,
@@ -354,7 +358,7 @@ class MIPROv2(Teleprompter):
         )
         return user_input == "y"
 
-    def _bootstrap_fewshot_examples(self, program: Any, trainset: List, seed: int, teacher: Any) -> Optional[List]:
+    async def _bootstrap_fewshot_examples(self, settings: Settings, program: Any, trainset: List, seed: int, teacher: Any) -> Optional[List]:
         logger.info("\n==> STEP 1: BOOTSTRAP FEWSHOT EXAMPLES <==")
         if self.max_bootstrapped_demos > 0:
             logger.info(
@@ -368,7 +372,8 @@ class MIPROv2(Teleprompter):
         zeroshot = self.max_bootstrapped_demos == 0 and self.max_labeled_demos == 0
 
         try:
-            demo_candidates = create_n_fewshot_demo_sets(
+            demo_candidates = await create_n_fewshot_demo_sets(
+                settings=settings,
                 student=program,
                 num_candidate_sets=self.num_candidates,
                 trainset=trainset,
@@ -391,8 +396,9 @@ class MIPROv2(Teleprompter):
 
         return demo_candidates
 
-    def _propose_instructions(
+    async def _propose_instructions(
         self,
+        settings: Settings,
         program: Any,
         trainset: List,
         demo_candidates: Optional[List],
@@ -407,11 +413,9 @@ class MIPROv2(Teleprompter):
             "We will use the few-shot examples from the previous step, a generated dataset summary, a summary of the program code, and a randomly selected prompting tip to propose instructions."
         )
 
-        proposer = GroundedProposer(
+        proposer = await GroundedProposer(
             program=program,
-            trainset=trainset,
             prompt_model=self.prompt_model,
-            view_data_batch_size=view_data_batch_size,
             program_aware=program_aware_proposer,
             use_dataset_summary=data_aware_proposer,
             use_task_demos=fewshot_aware_proposer,
@@ -422,10 +426,11 @@ class MIPROv2(Teleprompter):
             set_history_randomly=False,
             verbose=self.verbose,
             rng=self.rng,
-        )
+        ).load_dataset_summary(settings, trainset, view_data_batch_size, self.prompt_model)
 
         logger.info("\nProposing instructions...\n")
-        instruction_candidates = proposer.propose_instructions_for_program(
+        instruction_candidates = await proposer.propose_instructions_for_program(
+            settings=settings,
             trainset=trainset,
             program=program,
             demo_candidates=demo_candidates,
@@ -443,8 +448,9 @@ class MIPROv2(Teleprompter):
 
         return instruction_candidates
 
-    def _optimize_prompt_parameters(
+    async def _optimize_prompt_parameters(
         self,
+        settings: Settings,
         program: Any,
         instruction_candidates: Dict[int, List[str]],
         demo_candidates: Optional[List],
@@ -468,8 +474,8 @@ class MIPROv2(Teleprompter):
         adjusted_num_trials = (num_trials + num_trials // minibatch_full_eval_steps + 1 + run_additional_full_eval_at_end) if minibatch else num_trials
         logger.info(f"== Trial {1} / {adjusted_num_trials} - Full Evaluation of Default Program ==")
 
-        default_score, _ = eval_candidate_program(
-            len(valset), valset, program, evaluate, self.rng, return_all_scores=True
+        default_score, _ = await eval_candidate_program(
+            settings, len(valset), valset, program, evaluate, self.rng, return_all_scores=True
         )
         logger.info(f"Default program score: {default_score}\n")
 
@@ -489,8 +495,8 @@ class MIPROv2(Teleprompter):
         fully_evaled_param_combos = {}
 
         # Define the objective function
-        def objective(trial):
-            nonlocal program, best_program, best_score, trial_logs, total_eval_calls, score_data
+        async def objective(trial):
+            nonlocal settings, program, best_program, best_score, trial_logs, total_eval_calls, score_data
 
             trial_num = trial.number + 1
             if minibatch:
@@ -520,7 +526,7 @@ class MIPROv2(Teleprompter):
 
             # Evaluate the candidate program (on minibatch if minibatch=True)
             batch_size = minibatch_size if minibatch else len(valset)
-            score = eval_candidate_program(batch_size, valset, candidate_program, evaluate, self.rng)
+            score = await eval_candidate_program(settings, batch_size, valset, candidate_program, evaluate, self.rng)
             total_eval_calls += batch_size
 
             # Update best score and program
