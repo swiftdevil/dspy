@@ -114,7 +114,7 @@ class Refine(Module):
             try:
                 with settings.context(trace=[]) as settings_1:
                     if not advice:
-                        outputs = await mod(settings, **kwargs)
+                        outputs = await mod(settings_1, **kwargs)
                     else:
 
                         class WrapperAdapter(adapter.__class__):
@@ -156,7 +156,7 @@ class Refine(Module):
                     k: v if isinstance(v, str) else ujson.dumps(recursive_mask(v), indent=2)
                     for k, v in advise_kwargs.items()
                 }
-                advice = dspy.Predict(OfferFeedback)(**advise_kwargs).advice
+                advice = (await dspy.Predict(OfferFeedback)(settings, **advise_kwargs)).advice
                 # print(f"Advice for each module: {advice}")
 
             except Exception as e:
