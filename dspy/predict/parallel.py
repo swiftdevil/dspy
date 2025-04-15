@@ -1,6 +1,6 @@
 import asyncio
 import threading
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, Optional
 
 from dspy.dsp.utils import Settings
 from dspy.primitives.example import Example
@@ -14,7 +14,7 @@ class Parallel:
         max_errors: int = 10,
         access_examples: bool = False,
         return_failed_examples: bool = False,
-        provide_traceback: bool = False,
+        provide_traceback: Optional[bool] = None,
         disable_progress_bar: bool = False,
     ):
         super().__init__()

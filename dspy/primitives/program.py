@@ -1,4 +1,5 @@
 import magicattr
+from typing import Optional
 
 from dspy.predict.parallel import Parallel
 from dspy.primitives.module import BaseModule
@@ -95,7 +96,7 @@ class Module(BaseModule, metaclass=ProgramMeta):
         num_threads: int = 32,
         max_errors: int = 10,
         return_failed_examples: bool = False,
-        provide_traceback: bool = False,
+        provide_traceback: Optional[bool] = None,
         disable_progress_bar: bool = False,
     ):
         """

@@ -1,4 +1,5 @@
 import json
+import regex
 import logging
 import litellm
 import pydantic
@@ -117,6 +118,10 @@ class JSONAdapter(ChatAdapter):
         return self.format_field_with_value(fields_with_values, role="assistant")
 
     async def parse(self, settings: Settings, signature: Type[Signature], completion: str) -> dict[str, Any]:
+        pattern = r'\{(?:[^{}]|(?R))*\}'
+        match = regex.search(pattern, completion, regex.DOTALL)  
+        if match:  
+            completion = match.group(0)
         fields = json_repair.loads(completion)
         fields = {k: v for k, v in fields.items() if k in signature.output_fields}
 
