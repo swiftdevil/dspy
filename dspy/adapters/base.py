@@ -327,12 +327,13 @@ class Adapter:
 
         return messages
 
-    def parse(self, signature: Type[Signature], completion: str) -> dict[str, Any]:
+    async def parse(self, settings: Settings, signature: Type[Signature], completion: str) -> dict[str, Any]:
         """Parse the LM output into a dictionary of the output fields.
 
         This method parses the LM output into a dictionary of the output fields.
 
         Args:
+            settings: 
             signature: The DSPy signature for which to parse the LM output.
             completion: The LM output to be parsed.
 
