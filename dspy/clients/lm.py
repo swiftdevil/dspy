@@ -302,7 +302,10 @@ async def litellm_completion(settings: Settings, request: Dict[str, Any], num_re
     )
 
     stream = settings.send_stream
+    caller_predict = settings.caller_predict
     if stream is None:
+        # If `streamify` is not used, or if the exact predict doesn't need to be streamed,
+        # we can just return the completion without streaming.
         return await litellm.acompletion(
             cache=cache,
             **retry_kwargs,
@@ -311,6 +314,7 @@ async def litellm_completion(settings: Settings, request: Dict[str, Any], num_re
 
     # The stream is already opened, and will be closed by the caller.
     stream = cast(MemoryObjectSendStream, stream)
+    caller_predict_id = id(caller_predict) if caller_predict else None
 
     async def stream_completion():
         response = await litellm.acompletion(
@@ -321,6 +325,9 @@ async def litellm_completion(settings: Settings, request: Dict[str, Any], num_re
         )
         chunks = []
         async for chunk in response:
+            if caller_predict_id:
+                # Add the predict id to the chunk so that the stream listener can identify which predict produces it.
+                chunk.predict_id = caller_predict_id
             chunks.append(chunk)
             await stream.send(chunk)
         return litellm.stream_chunk_builder(chunks)
