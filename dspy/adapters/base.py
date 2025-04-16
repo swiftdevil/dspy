@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Any, Optional, Type
 
 from dspy.adapters.types import History
+from dspy.dsp.utils import Settings
 from dspy.adapters.types.image import try_expand_image_tags
 from dspy.signatures.signature import Signature
 from dspy.utils.callback import BaseCallback, with_callbacks
@@ -20,17 +21,18 @@ class Adapter:
         cls.format = with_callbacks(cls.format)
         cls.parse = with_callbacks(cls.parse)
 
-    def __call__(
+    async def __call__(
         self,
+        settings: Settings,
         lm: "LM",
         lm_kwargs: dict[str, Any],
         signature: Type[Signature],
         demos: list[dict[str, Any]],
         inputs: dict[str, Any],
     ) -> list[dict[str, Any]]:
-        inputs = self.format(signature, demos, inputs)
+        inputs = await self.format(settings, signature, demos, inputs)
 
-        outputs = lm(messages=inputs, **lm_kwargs)
+        outputs = await lm(settings=settings, messages=inputs, **lm_kwargs)
         values = []
 
         for output in outputs:
@@ -39,7 +41,7 @@ class Adapter:
             if isinstance(output, dict):
                 output, output_logprobs = output["text"], output["logprobs"]
 
-            value = self.parse(signature, output)
+            value = await self.parse(settings, signature, output)
 
             if output_logprobs is not None:
                 value["logprobs"] = output_logprobs
@@ -48,8 +50,9 @@ class Adapter:
 
         return values
 
-    def format(
+    async def format(
         self,
+        settings: Settings,
         signature: Type[Signature],
         demos: list[dict[str, Any]],
         inputs: dict[str, Any],
@@ -324,12 +327,13 @@ class Adapter:
 
         return messages
 
-    def parse(self, signature: Type[Signature], completion: str) -> dict[str, Any]:
+    async def parse(self, settings: Settings, signature: Type[Signature], completion: str) -> dict[str, Any]:
         """Parse the LM output into a dictionary of the output fields.
 
         This method parses the LM output into a dictionary of the output fields.
 
         Args:
+            settings: 
             signature: The DSPy signature for which to parse the LM output.
             completion: The LM output to be parsed.
 

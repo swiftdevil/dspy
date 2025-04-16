@@ -1,14 +1,18 @@
 import pytest
 from pydantic import BaseModel
+
+import dspy
+from dspy.dsp.utils import Settings
 from dspy.primitives.tool import Tool
 from typing import Any, Optional
 
 
 # Test fixtures
-def dummy_function(x: int, y: str) -> str:
+async def dummy_function(settings: Settings, x: int, y: str) -> str:
     """A dummy function for testing.
 
     Args:
+        settings: the dspy settings object
         x: An integer parameter
         y: A string parameter
     """
@@ -20,7 +24,7 @@ class DummyModel(BaseModel):
     field2: int
 
 
-def dummy_with_pydantic(model: DummyModel) -> str:
+async def dummy_with_pydantic(settings: Settings, model: DummyModel) -> str:
     """A dummy function that accepts a Pydantic model."""
     return f"{model.field1} {model.field2}"
 
@@ -91,7 +95,7 @@ def test_tool_from_class():
         def __init__(self, user_id: str):
             self.user_id = user_id
 
-        def __call__(self, a: int, b: int) -> int:
+        def __call__(self, x: Settings, a: int, b: int) -> int:
             """Add two numbers."""
             return a + b
 
@@ -111,23 +115,23 @@ def test_tool_from_function_with_pydantic():
     assert "field2" in tool.args["model"]["properties"]
 
 
-def test_tool_callable():
+async def test_tool_callable():
     tool = Tool(dummy_function)
-    result = tool(x=42, y="hello")
+    result = await tool(dspy.settings, x=42, y="hello")
     assert result == "hello 42"
 
 
-def test_tool_with_pydantic_callable():
+async def test_tool_with_pydantic_callable():
     tool = Tool(dummy_with_pydantic)
     model = DummyModel(field1="test", field2=123)
-    result = tool(model=model)
+    result = await tool(dspy.settings, model=model)
     assert result == "test 123"
 
 
-def test_invalid_function_call():
+async def test_invalid_function_call():
     tool = Tool(dummy_function)
     with pytest.raises(ValueError):
-        tool(x="not an integer", y="hello")
+        await tool(dspy.settings, x="not an integer", y="hello")
 
 
 def test_parameter_desc():

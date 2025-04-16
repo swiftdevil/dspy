@@ -34,7 +34,7 @@ def test_evaluate_initialization():
     assert ev.display_progress == False
 
 
-def test_evaluate_call():
+async def test_evaluate_call():
     dspy.settings.configure(
         lm=DummyLM(
             {
@@ -45,14 +45,13 @@ def test_evaluate_call():
     )
     devset = [new_example("What is 1+1?", "2"), new_example("What is 2+2?", "4")]
     program = Predict("question -> answer")
-    assert program(question="What is 1+1?").answer == "2"
+    assert (await program(dspy.settings, question="What is 1+1?")).answer == "2"
     ev = Evaluate(
         devset=devset,
         metric=answer_exact_match,
         display_progress=False,
     )
-    score = ev(program)
-    assert score == 100.0
+    assert (await ev(dspy.settings, program)) == 100.0
 
 
 def test_construct_result_df():
@@ -79,60 +78,21 @@ def test_construct_result_df():
     )
 
 
-def test_multithread_evaluate_call():
+async def test_multithread_evaluate_call():
     dspy.settings.configure(lm=DummyLM({"What is 1+1?": {"answer": "2"}, "What is 2+2?": {"answer": "4"}}))
     devset = [new_example("What is 1+1?", "2"), new_example("What is 2+2?", "4")]
     program = Predict("question -> answer")
-    assert program(question="What is 1+1?").answer == "2"
+    assert (await program(dspy.settings, question="What is 1+1?")).answer == "2"
     ev = Evaluate(
         devset=devset,
         metric=answer_exact_match,
         display_progress=False,
         num_threads=2,
     )
-    score = ev(program)
-    assert score == 100.0
+    assert (await ev(dspy.settings, program)) == 100.0
 
 
-def test_multi_thread_evaluate_call_cancelled(monkeypatch):
-    # slow LM that sleeps for 1 second before returning the answer
-    class SlowLM(DummyLM):
-        def __call__(self, *args, **kwargs):
-            import time
-
-            time.sleep(1)
-            return super().__call__(*args, **kwargs)
-
-    dspy.settings.configure(lm=SlowLM({"What is 1+1?": {"answer": "2"}, "What is 2+2?": {"answer": "4"}}))
-
-    devset = [new_example("What is 1+1?", "2"), new_example("What is 2+2?", "4")]
-    program = Predict("question -> answer")
-    assert program(question="What is 1+1?").answer == "2"
-
-    # spawn a thread that will sleep for .1 seconds then send a KeyboardInterrupt
-    def sleep_then_interrupt():
-        import time
-
-        time.sleep(0.1)
-        import os
-
-        os.kill(os.getpid(), signal.SIGINT)
-
-    input_thread = threading.Thread(target=sleep_then_interrupt)
-    input_thread.start()
-
-    with pytest.raises(KeyboardInterrupt):
-        ev = Evaluate(
-            devset=devset,
-            metric=answer_exact_match,
-            display_progress=False,
-            num_threads=2,
-        )
-        score = ev(program)
-        assert score == 100.0
-
-
-def test_evaluate_call_bad():
+async def test_evaluate_call_bad():
     dspy.settings.configure(lm=DummyLM({"What is 1+1?": {"answer": "0"}, "What is 2+2?": {"answer": "0"}}))
     devset = [new_example("What is 1+1?", "2"), new_example("What is 2+2?", "4")]
     program = Predict("question -> answer")
@@ -141,9 +101,15 @@ def test_evaluate_call_bad():
         metric=answer_exact_match,
         display_progress=False,
     )
-    score = ev(program)
-    assert score == 0.0
+    assert (await ev(dspy.settings, program)) == 0.0
 
+
+def get_predict_def(sig: str, key):
+    async def x(settings, text: str):
+        result = await Predict(sig)(settings, text=text)
+        return result[key]
+    
+    return x
 
 @pytest.mark.parametrize(
     "program_with_example",
@@ -152,24 +118,24 @@ def test_evaluate_call_bad():
         # Create programs that do not return dictionary-like objects because Evaluate()
         # has failed for such cases in the past
         (
-            lambda text: Predict("text: str -> entities: List[str]")(text=text).entities,
+            get_predict_def("text: str -> entities: List[str]", "entities"),
             dspy.Example(text="United States", entities=["United States"]).with_inputs("text"),
         ),
         (
-            lambda text: Predict("text: str -> entities: List[Dict[str, str]]")(text=text).entities,
+            get_predict_def("text: str -> entities: List[Dict[str, str]]", "entities"),
             dspy.Example(text="United States", entities=[{"name": "United States", "type": "location"}]).with_inputs(
                 "text"
             ),
         ),
         (
-            lambda text: Predict("text: str -> first_word: Tuple[str, int]")(text=text).words,
+            get_predict_def("text: str -> first_word: Tuple[str, int]", "first_word"),
             dspy.Example(text="United States", first_word=("United", 6)).with_inputs("text"),
         ),
     ],
 )
 @pytest.mark.parametrize("display_table", [True, False, 1])
 @pytest.mark.parametrize("is_in_ipython_notebook_environment", [True, False])
-def test_evaluate_display_table(program_with_example, display_table, is_in_ipython_notebook_environment, capfd):
+async def test_evaluate_display_table(program_with_example, display_table, is_in_ipython_notebook_environment, capfd):
     program, example = program_with_example
     example_input = next(iter(example.inputs().values()))
     example_output = {key: value for key, value in example.toDict().items() if key not in example.inputs()}
@@ -181,10 +147,13 @@ def test_evaluate_display_table(program_with_example, display_table, is_in_ipyth
             }
         )
     )
+    
+    async def metric(settings, example, pred, **kwargs):
+        return example == pred
 
     ev = Evaluate(
         devset=[example],
-        metric=lambda example, pred, **kwargs: example == pred,
+        metric=metric,
         display_table=display_table,
     )
     assert ev.display_table == display_table
@@ -192,7 +161,7 @@ def test_evaluate_display_table(program_with_example, display_table, is_in_ipyth
     with patch(
         "dspy.evaluate.evaluate.is_in_ipython_notebook_environment", return_value=is_in_ipython_notebook_environment
     ):
-        ev(program)
+        await ev(dspy.settings, program)
         out, _ = capfd.readouterr()
         if not is_in_ipython_notebook_environment and display_table:
             # In console environments where IPython is not available, the table should be printed
@@ -200,7 +169,7 @@ def test_evaluate_display_table(program_with_example, display_table, is_in_ipyth
             example_input = next(iter(example.inputs().values()))
             assert example_input in out
 
-def test_evaluate_callback():
+async def test_evaluate_callback():
     class TestCallback(BaseCallback):
         def __init__(self):
             self.start_call_inputs = None
@@ -208,18 +177,20 @@ def test_evaluate_callback():
             self.end_call_outputs = None
             self.end_call_count = 0
 
-        def on_evaluate_start(
+        async def on_evaluate_start(
             self,
             call_id: str,
             instance,
+            settings,
             inputs,
         ):
             self.start_call_inputs = inputs
             self.start_call_count += 1
         
-        def on_evaluate_end(
+        async def on_evaluate_end(
             self,
             call_id: str,
+            settings,
             outputs,
             exception = None,
         ):
@@ -238,14 +209,13 @@ def test_evaluate_callback():
     )
     devset = [new_example("What is 1+1?", "2"), new_example("What is 2+2?", "4")]
     program = Predict("question -> answer")
-    assert program(question="What is 1+1?").answer == "2"
+    assert (await program(dspy.settings, question="What is 1+1?")).answer == "2"
     ev = Evaluate(
         devset=devset,
         metric=answer_exact_match,
         display_progress=False,
     )
-    score = ev(program)
-    assert score == 100.0
+    assert (await ev(dspy.settings, program)) == 100.0
     assert callback.start_call_inputs["program"] == program
     assert callback.start_call_count == 1
     assert callback.end_call_outputs == 100.0

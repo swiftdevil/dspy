@@ -72,10 +72,10 @@ class Predict(Module, Parameter):
         return self
 
     @with_callbacks
-    def __call__(self, **kwargs):
-        return self.forward(**kwargs)
+    async def __call__(self, settings, *args, **kwargs):
+        return await self.forward(settings, *args, **kwargs)
 
-    def forward(self, **kwargs):
+    async def forward(self, settings, *args, **kwargs):
         # Extract the three privileged keyword arguments.
         assert "new_signature" not in kwargs, "new_signature is no longer a valid keyword argument."
         signature = ensure_signature(kwargs.pop("signature", self.signature))
@@ -110,11 +110,11 @@ class Predict(Module, Parameter):
             stream = any(stream_listener.predict == self for stream_listener in stream_listeners)
 
         if stream:
-            with settings.context(caller_predict=self):
-                completions = adapter(lm, lm_kwargs=config, signature=signature, demos=demos, inputs=kwargs)
+            with settings.context(caller_predict=self) as cmp_settings:
+                completions = await adapter(settings=cmp_settings, lm=lm, lm_kwargs=config, signature=signature, demos=demos, inputs=kwargs)
         else:
-            with settings.context(send_stream=None):
-                completions = adapter(lm, lm_kwargs=config, signature=signature, demos=demos, inputs=kwargs)
+            with settings.context(send_stream=None) as cmp_settings:
+                completions = await adapter(settings=cmp_settings, lm=lm, lm_kwargs=config, signature=signature, demos=demos, inputs=kwargs)
 
         pred = Prediction.from_completions(completions, signature=signature)
 

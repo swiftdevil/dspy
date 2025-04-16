@@ -3,7 +3,7 @@ from dspy import ChainOfThought
 from dspy.utils import DummyLM
 
 
-def test_initialization_with_string_signature():
+async def test_initialization_with_string_signature():
     lm = DummyLM([{"reasoning": "find the number after 1", "answer": "2"}])
     dspy.settings.configure(lm=lm)
     predict = ChainOfThought("question -> answer")
@@ -11,4 +11,6 @@ def test_initialization_with_string_signature():
         "reasoning",
         "answer",
     ]
-    assert predict(question="What is 1+1?").answer == "2"
+    with dspy.context() as settings:
+        result = await predict(settings, question="What is 1+1?")
+    assert result.answer == "2"

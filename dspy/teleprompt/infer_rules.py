@@ -21,12 +21,12 @@ class InferRules(BootstrapFewShot):
         self.metric = kwargs.get("metric")
         self.max_errors = kwargs.get("max_errors", 10)
 
-    def compile(self, student, *, teacher=None, trainset, valset=None):
+    async def compile(self, student, *, teacher=None, trainset, valset=None):
         if valset is None:
             train_size = int(0.5 * len(trainset))
             trainset, valset = trainset[:train_size], trainset[train_size:]
 
-        super().compile(student, teacher=teacher, trainset=trainset)
+        await super().compile(student, teacher=teacher, trainset=trainset)
 
         original_program = self.student.deepcopy()
         all_predictors = [p for p in original_program.predictors() if hasattr(p, "signature")]

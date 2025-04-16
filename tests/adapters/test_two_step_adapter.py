@@ -4,7 +4,7 @@ import pytest
 import dspy
 
 
-def test_two_step_adapter_call():
+async def test_two_step_adapter_call():
     class TestSignature(dspy.Signature):
         question: str = dspy.InputField(desc="The math question to solve")
         solution: str = dspy.OutputField(desc="Step by step solution")
@@ -12,11 +12,11 @@ def test_two_step_adapter_call():
     
     program = dspy.Predict(TestSignature)
 
-    mock_main_lm = mock.MagicMock(spec=dspy.LM)
+    mock_main_lm = mock.AsyncMock(spec=dspy.LM)
     mock_main_lm.return_value = ["text from main LM"]
     mock_main_lm.kwargs = {"temperature": 1.0}
 
-    mock_extraction_lm = mock.MagicMock(spec=dspy.LM)
+    mock_extraction_lm = mock.AsyncMock(spec=dspy.LM)
     mock_extraction_lm.return_value = [
         """
 [[ ## solution ## ]] result
@@ -29,7 +29,7 @@ def test_two_step_adapter_call():
 
     dspy.configure(lm=mock_main_lm, adapter=dspy.TwoStepAdapter(extraction_model=mock_extraction_lm))
 
-    result = program(question="What is 5 + 7?")
+    result = await program(settings=dspy.settings, question="What is 5 + 7?")
     
     assert result.answer == 12
 

@@ -1,7 +1,6 @@
 import magicattr
 from typing import Optional
 
-from dspy.dsp.utils.settings import settings
 from dspy.predict.parallel import Parallel
 from dspy.primitives.module import BaseModule
 from dspy.utils.callback import with_callbacks
@@ -21,14 +20,14 @@ class Module(BaseModule, metaclass=ProgramMeta):
         self._compiled = False
 
     @with_callbacks
-    def __call__(self, *args, **kwargs):
+    async def __call__(self, settings, *args, **kwargs):
         if settings.track_usage and settings.usage_tracker is None:
             with track_usage() as usage_tracker:
-                output = self.forward(*args, **kwargs)
+                output = await self.forward(settings, *args, **kwargs)
                 output.set_lm_usage(usage_tracker.get_total_tokens())
                 return output
 
-        return self.forward(*args, **kwargs)
+        return await self.forward(settings, *args, **kwargs)
 
     def named_predictors(self):
         from dspy.predict.predict import Predict
@@ -90,8 +89,9 @@ class Module(BaseModule, metaclass=ProgramMeta):
 
     #     return new_copy
 
-    def batch(
+    async def batch(
         self,
+        settings,
         examples,
         num_threads: Optional[int] = None,
         max_errors: int = 10,
@@ -102,6 +102,7 @@ class Module(BaseModule, metaclass=ProgramMeta):
         """
         Processes a list of dspy.Example instances in parallel using the Parallel module.
 
+        :param settings: dspy Settings object
         :param examples: List of dspy.Example instances to process.
         :param num_threads: Number of threads to use for parallel processing.
         :param max_errors: Maximum number of errors allowed before stopping execution.
@@ -123,10 +124,10 @@ class Module(BaseModule, metaclass=ProgramMeta):
 
         # Execute the forward method of Parallel
         if return_failed_examples:
-            results, failed_examples, exceptions = parallel_executor.forward(exec_pairs)
+            results, failed_examples, exceptions = await parallel_executor.forward(settings, exec_pairs)
             return results, failed_examples, exceptions
         else:
-            results = parallel_executor.forward(exec_pairs)
+            results = await parallel_executor.forward(settings, exec_pairs)
             return results
 
 

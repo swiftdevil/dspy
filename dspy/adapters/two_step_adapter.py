@@ -1,5 +1,6 @@
 from typing import Any, Type
 
+from dspy.dsp.utils import Settings
 from dspy.signatures.signature import Signature
 from dspy.adapters.base import Adapter
 from dspy.adapters.chat_adapter import ChatAdapter
@@ -43,8 +44,8 @@ class TwoStepAdapter(Adapter):
             raise ValueError("extraction_model must be an instance of LM")
         self.extraction_model = extraction_model
 
-    def format(
-        self, signature: Type[Signature], demos: list[dict[str, Any]], inputs: dict[str, Any]
+    async def format(
+        self, settings: Settings, signature: Type[Signature], demos: list[dict[str, Any]], inputs: dict[str, Any]
     ) -> list[dict[str, Any]]:
         """
         Format a prompt for the first stage with the main LM.
@@ -52,6 +53,7 @@ class TwoStepAdapter(Adapter):
         instead of format_field_description or format_field_structure.
 
         Args:
+            settings: 
             signature: The signature of the original task
             demos: A list of demo examples
             inputs: The current input
@@ -72,12 +74,13 @@ class TwoStepAdapter(Adapter):
 
         return messages
 
-    def parse(self, signature: Signature, completion: str) -> dict[str, Any]:
+    async def parse(self, settings: Settings, signature: Signature, completion: str) -> dict[str, Any]:
         """
         Use a smaller LM (extraction_model) with chat adapter to extract structured data
         from the raw completion text of the main LM.
 
         Args:
+            settings: 
             signature: The signature of the original task
             completion: The completion from the main LM
 
@@ -89,7 +92,8 @@ class TwoStepAdapter(Adapter):
 
         try:
             # Call the smaller LM to extract structured data from the raw completion text with ChatAdapter
-            parsed_result = ChatAdapter()(
+            parsed_result = await ChatAdapter()(
+                settings=settings,
                 lm=self.extraction_model,
                 lm_kwargs={},
                 signature=extractor_signature,

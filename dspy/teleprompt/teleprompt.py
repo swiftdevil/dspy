@@ -1,15 +1,18 @@
 from typing import Optional, Any
+
+from dspy.dsp.utils import Settings
 from dspy.primitives import Module, Example
 
 class Teleprompter:
     def __init__(self):
         pass
 
-    def compile(self, student: Module, *, trainset: list[Example], teacher: Optional[Module] = None, valset: Optional[list[Example]] = None, **kwargs) -> Module:
+    async def compile(self, settings: Settings, student: Module, *, trainset: list[Example], teacher: Optional[Module] = None, valset: Optional[list[Example]] = None, **kwargs) -> Module:
         """
         Optimize the student program.
 
         Args:
+            settings: The dspy settings object.
             student: The student program to optimize.
             trainset: The training set to use for optimization.
             teacher: The teacher program to use for optimization.

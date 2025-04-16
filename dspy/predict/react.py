@@ -5,6 +5,7 @@ from litellm import ContextWindowExceededError
 from pydantic import BaseModel
 
 import dspy
+from dspy.dsp.utils import Settings
 from dspy.primitives.program import Module
 from dspy.primitives.tool import Tool
 from dspy.signatures.signature import ensure_signature
@@ -36,8 +37,11 @@ class ReAct(Module):
             ]
         )
 
+        async def finish_func(settings, *args, **kwargs):
+            return "Completed."
+
         tools["finish"] = Tool(
-            func=lambda **kwargs: "Completed.",
+            func=finish_func,
             name="finish",
             desc=f"Signals that the final outputs, i.e. {outputs}, are now available and marks the task as complete.",
             args={},
@@ -66,15 +70,15 @@ class ReAct(Module):
         self.react = dspy.Predict(react_signature)
         self.extract = dspy.ChainOfThought(fallback_signature)
 
-    def _format_trajectory(self, trajectory: dict[str, Any]):
-        adapter = dspy.settings.adapter or dspy.ChatAdapter()
+    def _format_trajectory(self, settings, trajectory: dict[str, Any]):
+        adapter = settings.adapter or dspy.ChatAdapter()
         trajectory_signature = dspy.Signature(f"{', '.join(trajectory.keys())} -> x")
         return adapter.format_user_message_content(trajectory_signature, trajectory)
 
-    def forward(self, **input_args):
+    async def forward(self, settings, *args, **input_args):
         trajectory = {}
         for idx in range(self.max_iters):
-            pred = self._call_with_potential_trajectory_truncation(self.react, trajectory, **input_args)
+            pred = await self._call_with_potential_trajectory_truncation(settings, self.react, trajectory, *args, **input_args)
 
             trajectory[f"thought_{idx}"] = pred.next_thought
             trajectory[f"tool_name_{idx}"] = pred.next_tool_name
@@ -91,23 +95,27 @@ class ReAct(Module):
                         ):
                             parsed_tool_args[k] = arg_type.model_validate(v)
                             continue
+                        elif get_origin(arg_type) == Settings:
+                            continue
                     parsed_tool_args[k] = v
-                trajectory[f"observation_{idx}"] = self.tools[pred.next_tool_name](**parsed_tool_args)
+                trajectory[f"observation_{idx}"] = await self.tools[pred.next_tool_name](settings, *args, **parsed_tool_args)
             except Exception as e:
                 trajectory[f"observation_{idx}"] = f"Failed to execute: {e}"
 
             if pred.next_tool_name == "finish":
                 break
 
-        extract = self._call_with_potential_trajectory_truncation(self.extract, trajectory, **input_args)
+        extract = await self._call_with_potential_trajectory_truncation(settings, self.extract, trajectory, **input_args)
         return dspy.Prediction(trajectory=trajectory, **extract)
 
-    def _call_with_potential_trajectory_truncation(self, module, trajectory, **input_args):
+    async def _call_with_potential_trajectory_truncation(self, settings, module, trajectory, *args, **input_args):
         while True:
             try:
-                return module(
+                return await module(
+                    settings,
+                    *args,
                     **input_args,
-                    trajectory=self._format_trajectory(trajectory),
+                    trajectory=self._format_trajectory(settings, trajectory),
                 )
             except ContextWindowExceededError:
                 logger.warning("Trajectory exceeded the context window, truncating the oldest tool call information.")

@@ -8,7 +8,24 @@
 
 **Documentation:** [DSPy Docs](https://dspy.ai/)
 
-[![PyPI Downloads](https://static.pepy.tech/badge/dspy/month)](https://pepy.tech/projects/dspy)
+[![PyPI Downloads](https://static.pepy.tech/badge/dspy-async)](https://pepy.tech/projects/dspy-async)
+
+
+## ASYNC DSPY
+
+This is a fork of DSPy that has been modified to be fully async. Underlying behavior is untouched, with the exception of global per-thread settings overrides. The goal of this fork is to maintain parity and release cadence with DSPy (which is not complex or a large time-sink, given that the vast majority of changes are spamming async/await on various methods). It aims to be a near-drop-in replacement for dspy.
+
+The high-level changes are as follows:
+- Calls to tools, metrics, and modules must be `awaited`
+- Implementations of tools, metrics, and modules must be declared as async
+  - Including `__call__`, `forward`
+- The dspy `Settings` object is now passed forward into every `__call__` and `forward` method - as well as the callbacks - instead of being overridden globally on a per-thread basis
+  - This allows multiple dspy instances to be used in the same thread without mutating the settings context of other running dspy instances
+
+For examples on how to use dspy-async, see:
+- [`react` unit test](tests/predict/test_react.py)
+- [`tool` unit test](tests/primitives/test_tool.py)
+- [`predict` unit test](tests/predict/test_predict.py)
 
 
 ----
@@ -28,13 +45,13 @@ DSPy stands for Declarative Self-improving Python. Instead of brittle prompts, y
 
 
 ```bash
-pip install dspy
+pip install dspy-async
 ```
 
-To install the very latest from `main`:
+To install the very latest from `full_async`:
 
 ```bash
-pip install git+https://github.com/stanfordnlp/dspy.git
+pip install git+https://github.com/swiftdevil/dspy.git@full_async
 ````
 
 

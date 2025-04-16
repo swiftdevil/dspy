@@ -1,6 +1,8 @@
+import asyncio
 import threading
 from typing import Any, List, Tuple, Optional
 
+from dspy.dsp.utils import Settings
 from dspy.primitives.example import Example
 from dspy.utils.parallelizer import ParallelExecutor
 from dspy.dsp.utils.settings import settings
@@ -11,7 +13,7 @@ class Parallel:
         self,
         num_threads: Optional[int] = None,
         max_errors: int = 10,
-        access_examples: bool = True,
+        access_examples: bool = False,
         return_failed_examples: bool = False,
         provide_traceback: Optional[bool] = None,
         disable_progress_bar: bool = False,
@@ -30,31 +32,24 @@ class Parallel:
         self.failed_examples = []
         self.exceptions = []
 
-    def forward(self, exec_pairs: List[Tuple[Any, Example]], num_threads: Optional[int] = None) -> List[Any]:
+    async def forward(self, settings: Settings, exec_pairs: List[Tuple[Any, Example]], num_threads: Optional[int] = None) -> List[Any]:
         num_threads = num_threads if num_threads is not None else self.num_threads
 
-        executor = ParallelExecutor(
-            num_threads=num_threads,
-            max_errors=self.max_errors,
-            provide_traceback=self.provide_traceback,
-            disable_progress_bar=self.disable_progress_bar,
-        )
-
-        def process_pair(pair):
+        async def process_pair(pair):
             result = None
             module, example = pair
 
             if isinstance(example, Example):
                 if self.access_examples:
-                    result = module(**example.inputs())
+                    result = await module(settings, **example.inputs())
                 else:
-                    result = module(example)
+                    result = await module(settings, example)
             elif isinstance(example, dict):
-                result = module(**example)
+                result = await module(settings, **example)
             elif isinstance(example, list) and module.__class__.__name__ == "Parallel":
-                result = module(example)
+                result = await module(settings, example)
             elif isinstance(example, tuple):
-                result = module(*example)
+                result = await module(settings, *example)
             else:
                 raise ValueError(
                     f"Invalid example type: {type(example)}, only supported types are Example, dict, list and tuple"
@@ -62,12 +57,12 @@ class Parallel:
             return result
 
         # Execute the processing function over the execution pairs
-        results = executor.execute(process_pair, exec_pairs)
+        results = await asyncio.gather(*[process_pair(pair) for pair in exec_pairs])
 
         if self.return_failed_examples:
             return results, self.failed_examples, self.exceptions
         else:
             return results
 
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        return self.forward(*args, **kwargs)
+    async def __call__(self, settings: Settings, *args: Any, **kwargs: Any) -> Any:
+        return await self.forward(settings, *args, **kwargs)

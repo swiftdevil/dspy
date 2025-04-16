@@ -9,9 +9,9 @@ class HopModule(dspy.Module):
         self.predict1 = dspy.Predict("question -> query")
         self.predict2 = dspy.Predict("query -> answer")
 
-    def forward(self, question):
-        query = self.predict1(question=question).query
-        return self.predict2(query=query)
+    async def forward(self, settings, question):
+        query = await self.predict1(settings, question=question)
+        return await self.predict2(settings, query=query.query)
 
 
 def test_module_initialization():
@@ -34,18 +34,19 @@ def test_predictors():
     assert all(isinstance(p, dspy.Predict) for p in preds), "All returned items should be instances of PredictMock"
 
 
-def test_forward():
+async def test_forward():
     program = HopModule()
-    dspy.settings.configure(
-        lm=DummyLM(
-            {
-                "What is 1+1?": {"query": "let me check"},
-                "let me check": {"answer": "2"},
-            }
+    with dspy.context() as settings:
+        settings.configure(
+            lm=DummyLM(
+                {
+                    "What is 1+1?": {"query": "let me check"},
+                    "let me check": {"answer": "2"},
+                }
+            )
         )
-    )
-    result = program(question="What is 1+1?").answer
-    assert result == "2"
+        result = await program(settings, question="What is 1+1?")
+    assert result.answer == "2"
 
 
 def test_nested_named_predictors():

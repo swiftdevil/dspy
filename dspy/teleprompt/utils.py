@@ -42,16 +42,17 @@ def create_minibatch(trainset, batch_size=50, rng=None):
     return minibatch
 
 
-def eval_candidate_program(batch_size, trainset, candidate_program, evaluate, rng=None, return_all_scores=False):
+async def eval_candidate_program(settings, batch_size, trainset, candidate_program, evaluate, rng=None, return_all_scores=False):
     """Evaluate a candidate program on the trainset, using the specified batch size."""
 
     try:
         # Evaluate on the full trainset
         if batch_size >= len(trainset):
-            return evaluate(candidate_program, devset=trainset, return_all_scores=return_all_scores, callback_metadata={"metric_key": "eval_full"})
+            return await evaluate(settings, candidate_program, devset=trainset, return_all_scores=return_all_scores, callback_metadata={"metric_key": "eval_full"})
         # Or evaluate on a minibatch
         else:
-            return evaluate(
+            return await evaluate(
+                settings,
                 candidate_program,
                 devset=create_minibatch(trainset, batch_size, rng),
                 return_all_scores=return_all_scores,
@@ -308,7 +309,8 @@ def set_signature(predictor, updated_signature):
     predictor.signature = updated_signature
 
 
-def create_n_fewshot_demo_sets(
+async def create_n_fewshot_demo_sets(
+    settings,
     student,
     num_candidate_sets,
     trainset,
@@ -359,8 +361,8 @@ def create_n_fewshot_demo_sets(
         ):
             # labels only
             teleprompter = LabeledFewShot(k=max_labeled_demos)
-            program2 = teleprompter.compile(
-                student, trainset=trainset_copy, sample=labeled_sample,
+            program2 = await teleprompter.compile(
+                settings, student, trainset=trainset_copy, sample=labeled_sample,
             )
 
         elif seed == -1:
@@ -373,7 +375,7 @@ def create_n_fewshot_demo_sets(
                 teacher_settings=teacher_settings,
                 max_rounds=max_rounds,
             )
-            program2 = program.compile(student, teacher=teacher, trainset=trainset_copy)
+            program2 = await program.compile(settings, student, teacher=teacher, trainset=trainset_copy)
 
         else:
             # shuffled few-shot
@@ -390,8 +392,8 @@ def create_n_fewshot_demo_sets(
                 max_rounds=max_rounds,
             )
 
-            program2 = teleprompter.compile(
-                student, teacher=teacher, trainset=trainset_copy,
+            program2 = await teleprompter.compile(
+                settings, student, teacher=teacher, trainset=trainset_copy,
             )
 
         for i, _ in enumerate(student.predictors()):
